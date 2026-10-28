@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>数独 · 离线版</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;min-height:100vh;display:flex;justify-content:center;padding:16px;
+    background:linear-gradient(180deg,#f4f7fb 0%,#e8eef7 100%);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:#0f172a;
+  }
+  .app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:12px}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .title{display:flex;align-items:baseline;gap:10px}
+  h1{margin:0;font-size:22px;letter-spacing:4px;font-weight:700}
+  .badge{font-size:12px;color:#2563eb;background:#dbeafe;padding:2px 8px;border-radius:999px;font-weight:600}
+  .stats{display:flex;gap:16px;font-variant-numeric:tabular-nums}
+  .stats .k{font-size:11px;color:#64748b;display:block;text-align:right}
+  .stats div{text-align:right;font-size:15px;font-weight:600;color:#1e293b}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .picker{
+    display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#334155;
+    background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:6px 10px;
+  }
+  .picker select{
+    font:inherit;font-size:14px;color:#0f172a;
+    border:1px solid #cbd5e1;border-radius:8px;padding:3px 4px;background:#f8fafc;
+  }
+  .clue-box{
+    display:flex;align-items:center;gap:6px;font-size:13px;color:#334155;
+    background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:6px 10px;
+  }
+  .clue-box input{
+    width:58px;font:inherit;font-size:14px;text-align:center;color:#0f172a;
+    border:1px solid #cbd5e1;border-radius:8px;padding:3px 4px;background:#f8fafc;
+  }
+  select,button{
+    font:inherit;font-size:14px;border-radius:10px;border:1px solid #cbd5e1;
+    background:#fff;color:#0f172a;padding:8px 12px;cursor:pointer;transition:.15s;
+  }
+  button:hover{border-color:#94a3b8;background:#f8fafc}
+  button:active{transform:scale(.97)}
+  button.primary{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:600}
+  button.primary:hover{background:#1d4ed8}
+  button.on{background:#1e293b;border-color:#1e293b;color:#fff}
+  button.ok{background:#059669;border-color:#059669;color:#fff;font-weight:600}
+  button.ok:hover{background:#047857}
+  button:disabled{opacity:.55;cursor:default}
+  .hidden{display:none !important}
+  .board-wrap{position:relative}
+  .board{
+    display:grid;grid-template-columns:repeat(9,1fr);aspect-ratio:1;
+    background:#fff;border:2px solid #334155;border-radius:10px;overflow:hidden;
+    box-shadow:0 6px 24px rgba(15,23,42,.08);user-select:none;
+  }
+  .cell{
+    display:flex;align-items:center;justify-content:center;
+    border-right:1px solid #d7dee8;border-bottom:1px solid #d7dee8;
+    font-size:clamp(17px,5.4vw,28px);font-weight:500;color:#2563eb;cursor:pointer;
+    transition:background .1s;position:relative;
+  }
+  .cell.edge-r{border-right:none}
+  .cell.edge-b{border-bottom:none}
+  .cell.thick-r{border-right:2px solid #334155}
+  .cell.thick-b{border-bottom:2px solid #334155}
+  .cell.peer{background:#f1f6fd}
+  .cell.same{background:#dbeafe}
+  .cell.sel{background:#bfdbfe;box-shadow:inset 0 0 0 2px #2563eb}
+  .cell.given{color:#0f172a;font-weight:700}
+  .cell.trial{background:#f5f3ff;color:#7c3aed !important}
+  .cell.trial.sel{background:#ddd6fe;box-shadow:inset 0 0 0 2px #7c3aed}
+  .cell.wrong{color:#dc2626}
+  .cell.given.wrong{color:#dc2626}
+  .notes{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:100%;height:100%;padding:2px}
+  .notes span{display:flex;align-items:center;justify-content:center;font-size:clamp(7px,1.9vw,10px);color:#64748b;line-height:1}
+  .overlay{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(241,245,249,.85);backdrop-filter:blur(2px);border-radius:10px;z-index:5;
+  }
+  .overlay.hidden{display:none}
+  .card{
+    background:#fff;border-radius:14px;padding:22px 28px;text-align:center;
+    box-shadow:0 12px 40px rgba(15,23,42,.18);min-width:200px;
+  }
+  .card h2{margin:0 0 6px;font-size:20px}
+  .card p{margin:0 0 14px;color:#64748b;font-size:14px}
+  .card .spin{
+    width:26px;height:26px;margin:0 auto 10px;border-radius:50%;
+    border:3px solid #dbeafe;border-top-color:#2563eb;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- 小键盘 ---------- */
+  .pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:center}
+  .key{
+    padding:14px 0;font-size:clamp(17px,4.6vw,22px);font-weight:600;border-radius:12px;
+    background:#fff;border:1px solid #cbd5e1;box-shadow:0 1px 2px rgba(15,23,42,.05);
+  }
+  .key:active{background:#e2e8f0}
+  .key.del{font-size:18px;color:#64748b}
+  .pad.filtered .key{border-color:#bfdbfe;background:#f8fbff}
+  .pad.filtered .key.del{border-color:#cbd5e1;background:#fff}
+
+  /* 辅助：不可选数字置灰 */
+  .key.disabled,
+  .key.disabled:hover,
+  .key.disabled:active{
+    color:#cbd5e1;background:#f8fafc;border-color:#e2e8f0;
+    box-shadow:none;cursor:default;transform:none;
+  }
+  .pad.filtered .key.disabled{
+    color:#cbd5e1;background:#f8fafc;border-color:#e2e8f0;
+  }
+
+  @keyframes padFlash{from{opacity:.5;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .pad.flash{animation:padFlash .16s ease-out}
+
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .panel{background:#fff;border-radius:16px;padding:20px;width:min(100%,430px);box-shadow:0 20px 50px rgba(15,23,42,.25)}
+  .panel h3{margin:0 0 8px;font-size:16px}
+  .panel p{margin:0 0 10px;font-size:12px;color:#64748b;line-height:1.5}
+  .panel textarea{width:100%;height:150px;font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;border:1px solid #cbd5e1;border-radius:10px;padding:10px;resize:vertical}
+  .panel .err{min-height:18px;margin:6px 0 8px;font-size:12px;color:#dc2626}
+  .panel .row{display:flex;gap:8px;justify-content:flex-end}
+  .tip{margin:0;text-align:center;font-size:12px;color:#94a3b8;line-height:1.6}
+  .panel.wide{width:min(100%,560px);max-height:86vh;overflow:auto}
+  .tabs{display:flex;gap:6px;margin:10px 0 12px}
+  .tab{font-size:13px;padding:6px 10px;background:#f1f5f9;border-color:#e2e8f0;color:#475569}
+  .tab.on{background:#1e293b;border-color:#1e293b;color:#fff}
+  .tab-page{font-size:13px;line-height:1.65;color:#334155}
+  .tab-page h4{margin:12px 0 6px;font-size:13px;color:#0f172a}
+  .tab-page ul{margin:0 0 10px;padding-left:18px}
+  .tab-page li{margin:3px 0}
+  .tab-page table{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0 10px}
+  .tab-page th,.tab-page td{border-bottom:1px solid #e2e8f0;padding:5px 6px;text-align:left}
+  .tab-page th{color:#64748b;font-weight:600;white-space:nowrap}
+  .tab-page code{background:#f1f5f9;border-radius:4px;padding:0 4px;font-size:12px}
+  .panel .row{margin-top:10px}
+  @media (max-width:420px){
+    .stats{gap:10px}
+    .controls{gap:6px}
+    select,button{padding:7px 10px;font-size:13px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="title">
+      <h1>数独</h1>
+      <span class="badge" id="diffLabel">中等</span>
+    </div>
+    <div class="stats">
+      <div>时间<span id="timer">00:00</span></div>
+      <div>错误<span id="mistakes">0</span></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <label class="picker" title="出题算法：初代=随机挖空（可能多解）；初代·唯一=随机挖空但保证唯一解；深度=唯一解且必须推理">出题
+      <select id="modeSel">
+        <option value="legacy" selected>初代</option>
+        <option value="legacyUnique">初代 · 唯一解</option>
+        <option value="deep">深度</option>
+      </select>
+    </label>
+    <label id="diffBox" class="picker hidden" title="深度模式的难度档位">难度
+      <select id="difficulty">
+        <option value="easy">简单</option>
+        <option value="medium" selected>中等</option>
+        <option value="hard">困难</option>
+        <option value="expert">专家</option>
+        <option value="hell">地狱</option>
+        <option value="ultimate">终极</option>
+      </select>
+    </label>
+    <label id="clueBox" class="clue-box" title="初代模式保留的线索数，越少越难">线索
+      <input id="clueCount" type="number" min="17" max="60" value="30">
+    </label>
+    <button id="customBtn">自定义</button>
+    <button id="exportBtn">导出</button>
+    <button id="newGame" class="primary">新题</button>
+    <button id="undoBtn">撤销</button>
+    <button id="trialBtn">假设</button>
+    <button id="confirmTrialBtn" class="ok hidden">确认</button>
+    <button id="cancelTrialBtn" class="hidden">放弃</button>
+    <button id="assistBtn">辅助</button>
+    <button id="hintBtn">提示</button>
+    <button id="notesBtn">笔记</button>
+    <button id="infoBtn">说明</button>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="overlay" class="overlay hidden"></div>
+  </div>
+
+  <div id="pad" class="pad"></div>
+  <p class="tip">点格子后按 1–9 输入 · “+” 临时笔记 · Backspace 撤销 · Delete 删除（<b>假设中按 Delete = 放弃</b>）· “-” 打开说明（笔记模式下清空本格候选；说明弹窗中再按 - 关闭）· <b>*</b> 切换辅助 · <b>n</b> 新题<br>
+    按 <b>/</b> 或 <b>回车</b> 开始假设，假设中再按一次弹框确认 · 弹框中 <b>回车</b> 确认 · <b>Esc / 小键盘点</b> 取消弹框 · 放弃假设请点“放弃”按钮或按 <b>-</b> / <b>Delete</b><br>
+    <b>辅助</b> 开启后，当前格不可填的数字会置灰，只保留可填数字高亮<br>
+    <b>初代</b> 随机挖空，线索自选，可能多解（填满任意合法解即通关）· <b>初代 · 唯一解</b> 同样挖空但保证唯一解，难度随线索数平滑变化 ·
+    <b>深度</b> 唯一解且基础逻辑解不完，必须推理试探（含地狱、终极档）</p>
+</div>
+
+<div id="trialModal" class="modal hidden">
+  <div class="panel">
+    <h3>确认这次假设？</h3>
+    <p>确认后当前填写会作为正式进度保留；放弃则回到假设前的状态。</p>
+    <p style="color:#94a3b8">回车 / / = 确认 · Esc / 小键盘点 = 取消 · - / Delete 或“放弃”按钮 = 放弃</p>
+    <div class="row">
+      <button id="trialCancel">取消</button>
+      <button id="trialConfirm" class="primary">确认</button>
+    </div>
+  </div>
+</div>
+
+<div id="customModal" class="modal hidden">
+  <div class="panel">
+    <h3>自定义题目</h3>
+    <p>输入 81 个字符，0 或 . 表示空格，可分行也可连写。例如：<br>000000010400000000020000000000050407008000300001090000300400200050100000000806000</p>
+    <textarea id="customText" spellcheck="false" placeholder="000000000&#10;000000000&#10;000000000&#10;000000000&#10;000000000&#10;000000000&#10;000000000&#10;000000000&#10;000000000"></textarea>
+    <div class="err" id="customErr"></div>
+    <div class="row">
+      <button id="customCancel">取消</button>
+      <button id="customStart" class="primary">开始</button>
+    </div>
+  </div>
+</div>
+
+<div id="exportModal" class="modal hidden">
+  <div class="panel wide">
+    <h3>导出题目</h3>
+    <p id="exportMeta">可复制或下载为 .txt</p>
+    <textarea id="exportText" spellcheck="false" readonly></textarea>
+    <div class="err" id="exportHint"></div>
+    <div class="row">
+      <button id="exportClose">关闭</button>
+      <button id="exportCopy">复制</button>
+      <button id="exportDownload" class="primary">下载 .txt</button>
+    </div>
+  </div>
+</div>
+
+<div id="infoModal" class="modal hidden">
+  <div class="panel wide">
+    <h3>出题说明</h3>
+    <div class="tabs">
+      <button class="tab on" data-tab="gen">生成说明</button>
+      <button class="tab" data-tab="tech">技术栈</button>
+    </div>
+    <div id="tab-gen" class="tab-page">
+      <h4>怎么出题</h4>
+      <ul>
+        <li><b>随机终盘</b>：用回溯法随机填满一个合法 9×9 终盘。</li>
+        <li><b>对称挖空</b>：按中心对称成对挖格，再用单格补挖逼近目标线索数。</li>
+        <li><b>唯一解校验</b>：每挖一格都重新数解，最多数到 2；挖掉后出现多解就立即恢复。因此除“初代”外题目唯一解。</li>
+        <li><b>难度评级</b>：用 MRV 回溯搜索解题，统计分支试探节点数。0 次 = 唯一候选/隐性唯一即可解完；节点越多，越依赖假设与回溯。</li>
+        <li><b>限时生成</b>：深度模式反复生成直到落进目标节点区间；超过时限保留最接近的一题，标签显示实际试探次数。</li>
+      </ul>
+      <h4>难度分档（深度模式）</h4>
+      <table>
+        <tr><th>档位</th><th>回溯节点</th><th>说明</th></tr>
+        <tr><td>入门</td><td>1–3</td><td>基础逻辑 + 少量试探</td></tr>
+        <tr><td>进阶</td><td>4–8</td><td>需要一定推理</td></tr>
+        <tr><td>困难</td><td>9–16</td><td>多次假设</td></tr>
+        <tr><td>专家</td><td>17–34</td><td>搜索树明显变深</td></tr>
+        <tr><td>地狱</td><td>35–59</td><td>大量回溯</td></tr>
+        <tr><td>终极</td><td>≥60 且技巧栈卡住</td><td>完整技巧栈仍无法解完，必须试探</td></tr>
+      </table>
+      <p>初代模式按线索数控制难度（17–60），不保证唯一解；初代 · 唯一解在同样挖空方式下保证唯一解。</p>
+    </div>
+    <div id="tab-tech" class="tab-page hidden">
+      <h4>生成与校验</h4>
+      <ul>
+        <li><b>随机终盘</b>：逐格回溯 + 行/列/宫位掩码，等概率洗牌候选数。</li>
+        <li><b>唯一解计数</b>：DFS + MRV（最少候选格优先），数到 2 个解即停。</li>
+        <li><b>难度评级</b>：同一套 MRV 搜索统计分支节点，作为难度成本。</li>
+      </ul>
+      <h4>解题技巧栈（终极档启用）</h4>
+      <ul>
+        <li><b>唯一候选</b>（Naked Single）：某格只剩一个候选数。</li>
+        <li><b>隐性唯一</b>（Hidden Single）：某数字在一行/列/宫内只出现一次。</li>
+        <li><b>区块排除</b>（Locked Candidates）：宫内候选锁定在同一行/列，排除该行/列其余格。</li>
+        <li><b>显性数对</b>（Naked Pair）：两格候选完全相同且只有两个，排除同单元其他格。</li>
+        <li><b>X-Wing</b>：某数字在两行（或两列）各只有两个位置且列（行）对齐，排除对齐列（行）的其他候选。</li>
+      </ul>
+      <p><b>终极档规则</b>：只有选择“终极”时才运行完整技巧栈分析，要求节点数 ≥ 60 且技巧栈无法独立解完。其他档位不启用技巧栈，以免拖慢生成。</p>
+      <h4>实现</h4>
+      <ul>
+        <li>单文件 HTML + 原生 CSS/JS，无第三方库，可离线运行。</li>
+        <li>位掩码表示候选数，<code>Uint8Array</code>/<code>Uint16Array</code> 存储棋盘。</li>
+        <li>偏好（模式/线索/难度/辅助）保存在 <code>localStorage</code>。</li>
+      </ul>
+    </div>
+    <div class="row"><button id="infoClose">关闭</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------- 常量 & 状态 ---------- */
+  const DEEP_TIERS = {
+    easy:   { label:'入门', clues: 28, min: 1,  max: 3 },
+    medium: { label:'进阶', clues: 26, min: 4,  max: 8 },
+    hard:   { label:'困难', clues: 24, min: 9,  max: 16 },
+    expert: { label:'专家', clues: 22, min: 17, max: 34 },
+    hell:   { label:'地狱', clues: 18, min: 35, max: 59 },
+    ultimate:{ label:'终极', clues: 18, min: 60, max: Infinity, tech: true }
+  };
+  const DEEP_LABELS  = { easy:'入门', medium:'进阶', hard:'困难', expert:'专家', hell:'地狱', ultimate:'终极' };
+  const BASE_LABELS  = { easy:'简单', medium:'中等', hard:'困难', expert:'专家', hell:'地狱', ultimate:'终极' };
+  const DEEP_BUDGET  = 2500;
+  const ULTIMATE_BUDGET = 4500;
+  const LEGACY_DEF   = 30;
+
+  const boardEl  = document.getElementById('board');
+  const padEl    = document.getElementById('pad');
+  const overlay  = document.getElementById('overlay');
+  const timerEl  = document.getElementById('timer');
+  const mistakeEl= document.getElementById('mistakes');
+  const diffLabel= document.getElementById('diffLabel');
+  const diffSel  = document.getElementById('difficulty');
+  const diffBox  = document.getElementById('diffBox');
+  const modeSel  = document.getElementById('modeSel');
+  const clueBox  = document.getElementById('clueBox');
+  const clueCount= document.getElementById('clueCount');
+  const exportBtn = document.getElementById('exportBtn');
+  const infoBtn  = document.getElementById('infoBtn');
+  const exportModal = document.getElementById('exportModal');
+  const exportText = document.getElementById('exportText');
+  const exportMeta = document.getElementById('exportMeta');
+  const exportHint = document.getElementById('exportHint');
+  const infoModal = document.getElementById('infoModal');
+  const notesBtn = document.getElementById('notesBtn');
+  const assistBtn= document.getElementById('assistBtn');
+  const trialBtn = document.getElementById('trialBtn');
+  const confirmTrialBtn = document.getElementById('confirmTrialBtn');
+  const cancelTrialBtn = document.getElementById('cancelTrialBtn');
+  const trialModal = document.getElementById('trialModal');
+  const trialConfirm = document.getElementById('trialConfirm');
+  const trialCancel = document.getElementById('trialCancel');
+  const customBtn = document.getElementById('customBtn');
+  const customModal = document.getElementById('customModal');
+  const customText = document.getElementById('customText');
+  const customErr = document.getElementById('customErr');
+  const customStart = document.getElementById('customStart');
+  const customCancel = document.getElementById('customCancel');
+
+  let solution = new Uint8Array(81);
+  let puzzle   = new Uint8Array(81);
+  let values   = new Uint8Array(81);
+  let notes    = Array.from({length:81}, () => new Set());
+  let history  = [];
+
+  let selected = -1;
+  let notesMode = false;
+  let tempNotes = false;
+  let tempUsed = false;
+  let assistOn = false;
+  let mistakes = 0;
+  let seconds = 0;
+  let timerId = null;
+  let solved = false;
+  let generating = false;
+
+  let trialSnapshot = null;
+  const trialCells = new Set();
+  let multiSolve = false;
+  let currentInfo = null;
+  let mode = 'legacy';
+
+  /* ---------- 工具 ---------- */
+  const shuffle = a => {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.random() * (i + 1) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const popcount = n => { let c = 0; while (n) { n &= n - 1; c++; } return c; };
+  const bitToDigit = b => 31 - Math.clz32(b);
+  const rowOf = i => i / 9 | 0;
+  const colOf = i => i % 9;
+  const boxOf = i => ((rowOf(i) / 3 | 0) * 3 + (colOf(i) / 3 | 0));
+  const fmt = s => String(s / 60 | 0).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+
+  function peersOf(i){
+    const r = rowOf(i), c = colOf(i), out = [], seen = new Set([i]);
+    for (let k = 0; k < 9; k++){
+      const a = r * 9 + k, b = k * 9 + c;
+      if (!seen.has(a)) { seen.add(a); out.push(a); }
+      if (!seen.has(b)) { seen.add(b); out.push(b); }
+    }
+    const br = (r / 3 | 0) * 3, bc = (c / 3 | 0) * 3;
+    for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++){
+      const x = (br + dr) * 9 + (bc + dc);
+      if (!seen.has(x)) { seen.add(x); out.push(x); }
+    }
+    return out;
+  }
+
+  const UNITS = (() => {
+    const u = [];
+    for (let r = 0; r < 9; r++) u.push([...Array(9).keys()].map(c => r * 9 + c));
+    for (let c = 0; c < 9; c++) u.push([...Array(9).keys()].map(r => r * 9 + c));
+    for (let br = 0; br < 9; br++){
+      const cells = [];
+      for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++)
+        cells.push(((br / 3 | 0) * 3 + dr) * 9 + (br % 3) * 3 + dc);
+      u.push(cells);
+    }
+    return u;
+  })();
+  const PEERS = Array.from({length:81}, (_, i) => peersOf(i));
+
+  function solveCost(board, cap){
+    const FULL = 0x3FE;
+    let nodes = 0, aborted = false;
+
+    function solve(b){
+      if (aborted) return false;
+      const cand = new Uint16Array(81);
+      let empt = 0;
+
+      for (let i = 0; i < 81; i++){
+        if (b[i]){ cand[i] = 0; continue; }
+        let m = FULL;
+        for (const p of PEERS[i]) if (b[p]) m &= ~(1 << b[p]);
+        if (!m) return false;
+        cand[i] = m; empt++;
+      }
+      if (empt === 0) return true;
+
+      let progress = true;
+      while (progress){
+        progress = false;
+        for (let i = 0; i < 81; i++){
+          if (b[i] || !cand[i]) continue;
+          if ((cand[i] & (cand[i] - 1)) === 0){
+            const d = bitToDigit(cand[i]);
+            b[i] = d; cand[i] = 0; empt--;
+            for (const p of PEERS[i]){
+              if (b[p]) continue;
+              if (cand[p] & (1 << d)){ cand[p] &= ~(1 << d); if (!cand[p]) return false; }
+            }
+            progress = true;
+          }
+        }
+        if (empt === 0) return true;
+
+        for (const u of UNITS){
+          for (let d = 1; d <= 9; d++){
+            const bit = 1 << d;
+            let where = -1, n = 0, occ = false;
+            for (const i of u){
+              if (b[i] === d){ occ = true; break; }
+              if (!b[i] && (cand[i] & bit)){ n++; where = i; if (n > 1) break; }
+            }
+            if (occ || n !== 1) continue;
+            b[where] = d; cand[where] = 0; empt--;
+            for (const p of PEERS[where]){
+              if (b[p]) continue;
+              if (cand[p] & bit){ cand[p] &= ~bit; if (!cand[p]) return false; }
+            }
+            progress = true;
+          }
+        }
+        if (empt === 0) return true;
+      }
+
+      let best = -1, bc = 10;
+      for (let i = 0; i < 81; i++){
+        if (b[i]) continue;
+        let c = 0, m = cand[i]; while (m){ m &= m - 1; c++; }
+        if (c < bc){ bc = c; best = i; if (c === 2) break; }
+      }
+
+      nodes++;
+      if (nodes > cap){ aborted = true; return false; }
+
+      let m = cand[best];
+      while (m){
+        const bit = m & -m; m ^= bit;
+        const nb = Uint8Array.from(b);
+        nb[best] = bitToDigit(bit);
+        if (solve(nb)) return true;
+        nodes++;
+        if (nodes > cap){ aborted = true; return false; }
+      }
+      return false;
+    }
+
+    const ok = solve(Uint8Array.from(board));
+    return { nodes, ok, aborted };
+  }
+
+  function analyzeTechniques(board){
+    const b = Uint8Array.from(board);
+    const cand = new Uint16Array(81);
+    const used = { single:0, hidden:0, locked:0, pair:0, xwing:0 };
+    const FULL = 0x3FE;
+
+    const isFull = () => {
+      for (let i = 0; i < 81; i++) if (!b[i]) return false;
+      return true;
+    };
+    const place = (i, d) => {
+      b[i] = d; cand[i] = 0;
+      for (const p of PEERS[i]) cand[p] &= ~(1 << d);
+    };
+
+    for (let i = 0; i < 81; i++){
+      if (b[i]){ cand[i] = 0; continue; }
+      let m = FULL;
+      for (const p of PEERS[i]) if (b[p]) m &= ~(1 << b[p]);
+      cand[i] = m;
+    }
+
+    let progress = true;
+    while (progress){
+      progress = false;
+
+      for (let i = 0; i < 81; i++){
+        if (b[i] || !cand[i]) continue;
+        if (popcount(cand[i]) === 1){
+          place(i, bitToDigit(cand[i])); used.single++; progress = true;
+        }
+      }
+      if (isFull()) break;
+
+      for (const u of UNITS){
+        for (let d = 1; d <= 9; d++){
+          const bit = 1 << d;
+          let where = -1, n = 0, occ = false;
+          for (const i of u){
+            if (b[i] === d){ occ = true; break; }
+            if (!b[i] && (cand[i] & bit)){ n++; where = i; if (n > 1) break; }
+          }
+          if (!occ && n === 1){ place(where, d); used.hidden++; progress = true; }
+        }
+      }
+      if (isFull()) break;
+      if (progress) continue;
+
+      for (let d = 1; d <= 9; d++){
+        const bit = 1 << d;
+        for (let br = 0; br < 3; br++) for (let bc = 0; bc < 3; bc++){
+          const cells = [];
+          for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++){
+            const i = (br * 3 + dr) * 9 + bc * 3 + dc;
+            if (!b[i] && (cand[i] & bit)) cells.push(i);
+          }
+          if (cells.length < 2) continue;
+          const rows = new Set(cells.map(rowOf)), cols = new Set(cells.map(colOf));
+          if (rows.size === 1){
+            const r = [...rows][0];
+            for (let c = 0; c < 9; c++){
+              const i = r * 9 + c;
+              if (!cells.includes(i) && !b[i] && (cand[i] & bit)){ cand[i] &= ~bit; used.locked++; progress = true; }
+            }
+          }
+          if (cols.size === 1){
+            const c = [...cols][0];
+            for (let r = 0; r < 9; r++){
+              const i = r * 9 + c;
+              if (!cells.includes(i) && !b[i] && (cand[i] & bit)){ cand[i] &= ~bit; used.locked++; progress = true; }
+            }
+          }
+        }
+      }
+      if (progress) continue;
+
+      for (const u of UNITS){
+        const two = u.filter(i => !b[i] && popcount(cand[i]) === 2);
+        for (let x = 0; x < two.length; x++) for (let y = x + 1; y < two.length; y++){
+          if (cand[two[x]] !== cand[two[y]]) continue;
+          for (const i of u){
+            if (i === two[x] || i === two[y] || b[i]) continue;
+            if (cand[i] & cand[two[x]]){ cand[i] &= ~cand[two[x]]; used.pair++; progress = true; }
+          }
+        }
+      }
+      if (progress) continue;
+
+      for (let d = 1; d <= 9; d++){
+        const bit = 1 << d;
+        const rowCells = [];
+        for (let r = 0; r < 9; r++){
+          const cs = [];
+          for (let c = 0; c < 9; c++){ const i = r * 9 + c; if (!b[i] && (cand[i] & bit)) cs.push(c); }
+          rowCells.push(cs);
+        }
+        for (let r1 = 0; r1 < 9; r1++) for (let r2 = r1 + 1; r2 < 9; r2++){
+          const a = rowCells[r1], bb = rowCells[r2];
+          if (a.length !== 2 || bb.length !== 2 || a[0] !== bb[0] || a[1] !== bb[1]) continue;
+          for (const c of a) for (let r = 0; r < 9; r++){
+            if (r === r1 || r === r2) continue;
+            const i = r * 9 + c;
+            if (!b[i] && (cand[i] & bit)){ cand[i] &= ~bit; used.xwing++; progress = true; }
+          }
+        }
+        const colCells = [];
+        for (let c = 0; c < 9; c++){
+          const rs = [];
+          for (let r = 0; r < 9; r++){ const i = r * 9 + c; if (!b[i] && (cand[i] & bit)) rs.push(r); }
+          colCells.push(rs);
+        }
+        for (let c1 = 0; c1 < 9; c1++) for (let c2 = c1 + 1; c2 < 9; c2++){
+          const a = colCells[c1], bb = colCells[c2];
+          if (a.length !== 2 || bb.length !== 2 || a[0] !== bb[0] || a[1] !== bb[1]) continue;
+          for (const r of a) for (let c = 0; c < 9; c++){
+            if (c === c1 || c === c2) continue;
+            const i = r * 9 + c;
+            if (!b[i] && (cand[i] & bit)){ cand[i] &= ~bit; used.xwing++; progress = true; }
+          }
+        }
+      }
+    }
+
+    return { solved: isFull(), used };
+  }
+
+  function makeFullBoard(){
+    const b = new Uint8Array(81);
+    const rows = new Uint16Array(9), cols = new Uint16Array(9), boxes = new Uint16Array(9);
+
+    function rec(pos){
+      if (pos === 81) return true;
+      const r = rowOf(pos), c = colOf(pos), bx = boxOf(pos);
+      const digits = shuffle([1,2,3,4,5,6,7,8,9]);
+      for (const d of digits){
+        const bit = 1 << d;
+        if ((rows[r] | cols[c] | boxes[bx]) & bit) continue;
+        b[pos] = d; rows[r] |= bit; cols[c] |= bit; boxes[bx] |= bit;
+        if (rec(pos + 1)) return true;
+        b[pos] = 0; rows[r] &= ~bit; cols[c] &= ~bit; boxes[bx] &= ~bit;
+      }
+      return false;
+    }
+    rec(0);
+    return b;
+  }
+
+  function countSolutions(board, limit){
+    const b = Uint8Array.from(board);
+    const rows = new Uint16Array(9), cols = new Uint16Array(9), boxes = new Uint16Array(9);
+    for (let i = 0; i < 81; i++){
+      const v = b[i];
+      if (!v) continue;
+      const bit = 1 << v;
+      rows[rowOf(i)] |= bit; cols[colOf(i)] |= bit; boxes[boxOf(i)] |= bit;
+    }
+
+    let count = 0;
+
+    function dfs(){
+      let best = -1, bestMask = 0, bestCnt = 10;
+      for (let i = 0; i < 81; i++){
+        if (b[i]) continue;
+        const mask = ~(rows[rowOf(i)] | cols[colOf(i)] | boxes[boxOf(i)]) & 0x3FE;
+        const cnt = popcount(mask);
+        if (cnt === 0) return false;
+        if (cnt < bestCnt){
+          bestCnt = cnt; best = i; bestMask = mask;
+          if (cnt === 1) break;
+        }
+      }
+      if (best === -1){ count++; return count >= limit; }
+
+      const r = rowOf(best), c = colOf(best), bx = boxOf(best);
+      let m = bestMask;
+      while (m){
+        const low = m & -m; m ^= low;
+        const d = bitToDigit(low), bit = 1 << d;
+        b[best] = d; rows[r] |= bit; cols[c] |= bit; boxes[bx] |= bit;
+        const stop = dfs();
+        b[best] = 0; rows[r] &= ~bit; cols[c] &= ~bit; boxes[bx] &= ~bit;
+        if (stop) return true;
+      }
+      return false;
+    }
+
+    dfs();
+    return count;
+  }
+
+  function solveFirst(board){
+    const b = Uint8Array.from(board);
+    const rows = new Uint16Array(9), cols = new Uint16Array(9), boxes = new Uint16Array(9);
+    for (let i = 0; i < 81; i++){
+      const v = b[i];
+      if (!v) continue;
+      const bit = 1 << v;
+      rows[rowOf(i)] |= bit; cols[colOf(i)] |= bit; boxes[boxOf(i)] |= bit;
+    }
+
+    let out = null;
+
+    function dfs(){
+      let best = -1, bestMask = 0, bestCnt = 10;
+      for (let i = 0; i < 81; i++){
+        if (b[i]) continue;
+        const mask = ~(rows[rowOf(i)] | cols[colOf(i)] | boxes[boxOf(i)]) & 0x3FE;
+        const cnt = popcount(mask);
+        if (cnt === 0) return false;
+        if (cnt < bestCnt){ bestCnt = cnt; best = i; bestMask = mask; if (cnt === 1) break; }
+      }
+      if (best === -1){ out = Uint8Array.from(b); return true; }
+
+      const r = rowOf(best), c = colOf(best), bx = boxOf(best);
+      let m = bestMask;
+      while (m){
+        const low = m & -m; m ^= low;
+        const d = bitToDigit(low), bit = 1 << d;
+        b[best] = d; rows[r] |= bit; cols[c] |= bit; boxes[bx] |= bit;
+        const stop = dfs();
+        b[best] = 0; rows[r] &= ~bit; cols[c] &= ~bit; boxes[bx] &= ~bit;
+        if (stop) return true;
+      }
+      return false;
+    }
+
+    dfs();
+    return out;
+  }
+
+  function makePuzzle(full, targetClues){
+    const p = Uint8Array.from(full);
+    let remaining = 81;
+    const pairs = shuffle([...Array(41).keys()]);
+
+    for (const i of pairs){
+      if (remaining <= targetClues) break;
+      const j = 80 - i;
+      const vi = p[i], vj = p[j];
+      if (!vi && !vj) continue;
+      const removed = (vi ? 1 : 0) + (vj ? 1 : 0);
+      if (remaining - removed < targetClues) continue;
+
+      p[i] = 0; if (j !== i) p[j] = 0;
+      if (countSolutions(p, 2) !== 1){
+        p[i] = vi; p[j] = vj;
+      } else {
+        remaining -= removed;
+      }
+    }
+
+    const singles = shuffle([...Array(81).keys()]);
+    for (const i of singles){
+      if (remaining <= targetClues) break;
+      const v = p[i];
+      if (!v) continue;
+      p[i] = 0;
+      if (countSolutions(p, 2) !== 1) p[i] = v;
+      else remaining--;
+    }
+    return p;
+  }
+
+  function makeLegacyPuzzle(full, targetClues){
+    const p = Uint8Array.from(full);
+    let clues = 81;
+    for (const i of shuffle([...Array(81).keys()])){
+      if (clues <= targetClues) break;
+      if (!p[i]) continue;
+      p[i] = 0;
+      clues--;
+    }
+    return p;
+  }
+
+  function generateLegacy(){
+    const target = readClueTarget();
+    const full = makeFullBoard();
+    const p = makeLegacyPuzzle(full, target);
+    const multi = countSolutions(p, 2) > 1;
+    const sol = multi ? solveFirst(p) : Uint8Array.from(full);
+    const clues = 81 - Array.from(p).filter(v => !v).length;
+    return { p, full: sol, nodes: -1, multi, clues,
+             label: '初代 · ' + clues + ' 线索' + (multi ? ' · 多解' : '') };
+  }
+
+  function readClueTarget(){
+    const target = Math.max(17, Math.min(60, parseInt(clueCount.value, 10) || LEGACY_DEF));
+    clueCount.value = target;
+    return target;
+  }
+
+  function generateLegacyUnique(){
+    const target = readClueTarget();
+    const full = makeFullBoard();
+    const p = makePuzzle(full, target);
+    const clues = 81 - Array.from(p).filter(v => !v).length;
+    const r = solveCost(p, 300000);
+    const nodes = (r.ok && !r.aborted) ? r.nodes : -1;
+    const tag = nodes === 0 ? '纯逻辑可解' : (nodes > 0 ? nodes + ' 次试探' : '');
+    return { p, full, multi: false, nodes,
+             label: '初代唯一 · ' + clues + ' 线索' + (tag ? ' · ' + tag : '') };
+  }
+
+  function generateDeep(){
+    const key = diffSel.value;
+    const tier = DEEP_TIERS[key] || DEEP_TIERS.medium;
+    const deadline = performance.now() + (tier.tech ? ULTIMATE_BUDGET : DEEP_BUDGET);
+    let best = null, bestScore = Infinity, tried = 0;
+
+    while (performance.now() < deadline){
+      tried++;
+      const full = makeFullBoard();
+      const p = makePuzzle(full, tier.clues);
+      const r = solveCost(p, 60000);
+      if (!r.ok || r.aborted) continue;
+
+      const tech = (tier.tech && r.nodes >= tier.min) ? analyzeTechniques(p) : null;
+      const pass = r.nodes >= tier.min && r.nodes <= tier.max
+                && (!tier.tech || (tech && !tech.solved));
+      const label = '深度 · ' + tier.label + ' · ' + r.nodes + ' 次试探';
+      if (pass) return { p, full, nodes: r.nodes, multi: false, label, tech };
+
+      let score = r.nodes < tier.min ? tier.min - r.nodes
+                : (tier.max === Infinity ? 0.5 : r.nodes - tier.max);
+      if (tier.tech && r.nodes >= tier.min && tech && tech.solved) score += 25;
+      if (score < bestScore){
+        bestScore = score;
+        best = { p, full, nodes: r.nodes, multi: false, tech,
+                 label: '深度 · ' + tier.label + ' · 近似 · ' + r.nodes + ' 次试探' };
+      }
+    }
+
+    if (best) return best;
+    const full = makeFullBoard();
+    return { p: makePuzzle(full, tier.clues), full, nodes: -1, multi: false,
+             label: '深度 · ' + tier.label + ' · 近似', tech: null };
+  }
+
+  function conflictsAt(i, d){
+    for (const p of PEERS[i]) if (values[p] === d) return true;
+    return false;
+  }
+
+  function isSolvedGrid(){
+    const rows = new Uint16Array(9), cols = new Uint16Array(9), boxes = new Uint16Array(9);
+    for (let i = 0; i < 81; i++){
+      const v = values[i];
+      if (!v) return false;
+      const bit = 1 << v, r = rowOf(i), c = colOf(i), bx = boxOf(i);
+      if ((rows[r] | cols[c] | boxes[bx]) & bit) return false;
+      rows[r] |= bit; cols[c] |= bit; boxes[bx] |= bit;
+    }
+    return true;
+  }
+
+  /* ---------- 小键盘：辅助模式下不可填数字置灰 ---------- */
+  function candidatesOf(i){
+    if (i < 0 || values[i] || puzzle[i]) return null;
+    let used = 0;
+    for (const p of PEERS[i]) if (values[p]) used |= 1 << values[p];
+    const out = [];
+    for (let d = 1; d <= 9; d++) if (!(used & (1 << d))) out.push(d);
+    return out;
+  }
+
+  let padSig = '';
+
+  function renderPad(){
+    const digits = assistOn ? candidatesOf(selected) : null;
+    const filtered = !!digits;
+
+    const sig = filtered
+      ? (digits.length ? 'c:' + digits.join(',') : 'c:empty')
+      : 'all';
+    if (sig === padSig) return;
+    padSig = sig;
+
+    let html = '';
+    for (let d = 1; d <= 9; d++){
+      const dis = filtered && digits.indexOf(d) === -1;
+      html += '<button class="key' + (dis ? ' disabled' : '') + '" data-k="' + d + '"'
+            + (dis ? ' disabled aria-disabled="true"' : '') + '>' + d + '</button>';
+    }
+    html += '<button class="key del" data-k="⌫">⌫</button>';
+
+    padEl.innerHTML = html;
+    padEl.classList.toggle('filtered', filtered);
+    padEl.classList.remove('flash');
+    void padEl.offsetWidth;
+    padEl.classList.add('flash');
+  }
+
+  function updateAssistUI(){
+    assistBtn.classList.toggle('on', assistOn);
+    assistBtn.textContent = assistOn ? '辅助 · 开' : '辅助';
+  }
+
+  function toggleAssist(){
+    assistOn = !assistOn;
+    updateAssistUI();
+    renderPad();
+    savePrefs();
+  }
+
+  function render(){
+    const v = selected >= 0 ? values[selected] : 0;
+    const sr = selected >= 0 ? rowOf(selected) : -1;
+    const sc = selected >= 0 ? colOf(selected) : -1;
+    const sb = selected >= 0 ? boxOf(selected) : -1;
+
+    let html = '';
+    for (let i = 0; i < 81; i++){
+      const r = rowOf(i), c = colOf(i);
+      const cls = ['cell'];
+      if (c === 8) cls.push('edge-r');
+      if (r === 8) cls.push('edge-b');
+      if (c % 3 === 2 && c !== 8) cls.push('thick-r');
+      if (r % 3 === 2 && r !== 8) cls.push('thick-b');
+
+      if (i === selected) cls.push('sel');
+      else if (selected >= 0 && values[i] && values[i] === v) cls.push('same');
+      else if (selected >= 0 && (r === sr || c === sc || boxOf(i) === sb)) cls.push('peer');
+
+      const val = values[i];
+      if (puzzle[i]) cls.push('given');
+      if (trialCells.has(i) && val) cls.push('trial');
+      if (val){
+        if (multiSolve){ if (conflictsAt(i, val)) cls.push('wrong'); }
+        else if (val !== solution[i]) cls.push('wrong');
+      }
+
+      let inner = '';
+      if (val){
+        inner = '<span class="num">' + val + '</span>';
+      } else if (notes[i].size){
+        let ns = '';
+        for (let k = 1; k <= 9; k++) ns += '<span>' + (notes[i].has(k) ? k : '') + '</span>';
+        inner = '<div class="notes">' + ns + '</div>';
+      }
+      html += '<div class="' + cls.join(' ') + '" data-i="' + i + '">' + inner + '</div>';
+    }
+    boardEl.innerHTML = html;
+    renderPad();
+  }
+
+  function modalOpen(){
+    return !customModal.classList.contains('hidden')
+        || !infoModal.classList.contains('hidden')
+        || !exportModal.classList.contains('hidden')
+        || !trialModal.classList.contains('hidden');
+  }
+
+  function startTimer(){
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      if (solved || modalOpen()) return;
+      seconds++;
+      timerEl.textContent = fmt(seconds);
+    }, 1000);
+    timerEl.textContent = fmt(0);
+  }
+
+  function pushHistory(i){
+    history.push({ i, value: values[i], notes: [...notes[i]] });
+    if (history.length > 200) history.shift();
+  }
+
+  function inputDigit(d){
+    if (solved || selected < 0) return;
+    const i = selected;
+    if (puzzle[i]) return;
+
+    if (d === 0){
+      if (!values[i] && notes[i].size === 0) return;
+      pushHistory(i);
+      values[i] = 0;
+      notes[i].clear();
+    } else if (notesMode || tempNotes){
+      pushHistory(i);
+      if (tempNotes) tempUsed = true;
+      values[i] = 0;
+      if (notes[i].has(d)) notes[i].delete(d);
+      else notes[i].add(d);
+    } else {
+      if (values[i] === d){
+        pushHistory(i);
+        values[i] = 0;
+      } else {
+        pushHistory(i);
+        values[i] = d;
+        notes[i].clear();
+        if (multiSolve ? conflictsAt(i, d) : d !== solution[i]) mistakes++;
+        else peersOf(i).forEach(p => notes[p].delete(d));
+      }
+    }
+
+    if (trialSnapshot) trialCells.add(i);
+    mistakeEl.textContent = mistakes;
+    render();
+    if (isSolvedGrid()) win();
+  }
+
+  function hint(){
+    if (solved) return;
+    const empties = [];
+    for (let i = 0; i < 81; i++) if (values[i] !== solution[i]) empties.push(i);
+    if (!empties.length) return;
+    const i = empties[Math.random() * empties.length | 0];
+    pushHistory(i);
+    values[i] = solution[i];
+    notes[i].clear();
+    if (trialSnapshot) trialCells.add(i);
+    selected = i;
+    render();
+    if (isSolvedGrid()) win();
+  }
+
+  function undo(){
+    if (solved || !history.length) return;
+    const h = history.pop();
+    values[h.i] = h.value;
+    notes[h.i] = new Set(h.notes);
+    selected = h.i;
+    render();
+  }
+
+  function win(){
+    closeTrialModal();
+    if (trialSnapshot){ trialSnapshot = null; trialCells.clear(); updateTrialUI(); }
+    solved = true;
+    clearInterval(timerId);
+    overlay.innerHTML =
+      '<div class="card"><h2>🎉 完成！</h2>' +
+      '<p>难度 ' + diffLabel.textContent + ' · 用时 ' + fmt(seconds) + ' · 错误 ' + mistakes + ' 次</p>' +
+      '<button class="primary" id="againBtn">再来一题</button></div>';
+    overlay.classList.remove('hidden');
+    document.getElementById('againBtn').addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      newGame();
+    });
+  }
+
+  function updateTrialUI(){
+    const on = !!trialSnapshot;
+    trialBtn.classList.toggle('on', on);
+    trialBtn.textContent = on ? '假设中' : '假设';
+    confirmTrialBtn.classList.toggle('hidden', !on);
+    cancelTrialBtn.classList.toggle('hidden', !on);
+  }
+
+  function startTrial(){
+    if (solved || trialSnapshot) return;
+    trialSnapshot = {
+      values: Uint8Array.from(values),
+      notes: notes.map(s => new Set(s)),
+      mistakes,
+      selected,
+      historyLen: history.length
+    };
+    trialCells.clear();
+    updateTrialUI();
+    render();
+  }
+
+  function cancelTrial(){
+    if (!trialSnapshot) return;
+    const s = trialSnapshot;
+    values = s.values;
+    notes = s.notes;
+    mistakes = s.mistakes;
+    mistakeEl.textContent = mistakes;
+    history.length = s.historyLen;
+    selected = s.selected;
+    trialSnapshot = null;
+    trialCells.clear();
+    updateTrialUI();
+    render();
+  }
+
+  function confirmTrial(){
+    if (!trialSnapshot) return;
+    trialSnapshot = null;
+    trialCells.clear();
+    updateTrialUI();
+    render();
+  }
+
+  function openTrialModal(){
+    if (!trialSnapshot) return;
+    trialModal.classList.remove('hidden');
+  }
+
+  function closeTrialModal(){
+    trialModal.classList.add('hidden');
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  function trialModalOpen(){
+    return !trialModal.classList.contains('hidden');
+  }
+
+  function openCustom(){
+    customErr.textContent = '';
+    customModal.classList.remove('hidden');
+    customText.focus();
+  }
+
+  function closeCustom(){
+    customModal.classList.add('hidden');
+  }
+
+  function startCustom(){
+    const chars = [...customText.value].filter(ch => /[0-9.]/.test(ch));
+    if (chars.length !== 81){
+      customErr.textContent = '需要 81 个字符，当前 ' + chars.length + ' 个';
+      return;
+    }
+
+    const b = new Uint8Array(81);
+    for (let i = 0; i < 81; i++){
+      const ch = chars[i];
+      b[i] = (ch === '.' || ch === '0') ? 0 : +ch;
+    }
+
+    for (const u of UNITS){
+      const seen = new Set();
+      for (const i of u){
+        const v = b[i];
+        if (!v) continue;
+        if (seen.has(v)){ customErr.textContent = '题目有冲突：同一行/列/宫内出现重复数字'; return; }
+        seen.add(v);
+      }
+    }
+
+    const sol = solveFirst(b);
+    if (!sol){ customErr.textContent = '这个题目无解，检查一下输入'; return; }
+
+    multiSolve = countSolutions(b, 2) > 1;
+
+    solution = Uint8Array.from(sol);
+    puzzle = Uint8Array.from(b);
+    values = Uint8Array.from(puzzle);
+    notes = Array.from({length:81}, () => new Set());
+    history = [];
+    trialSnapshot = null;
+    trialCells.clear();
+    selected = -1;
+    mistakes = 0;
+    solved = false;
+    notesMode = false;
+    tempNotes = false;
+    tempUsed = false;
+    generating = false;
+    padSig = '';
+    updateNotesUI();
+    updateTrialUI();
+    mistakeEl.textContent = '0';
+    diffLabel.textContent = multiSolve ? '自定义 · 多解' : '自定义';
+    currentInfo = {
+      mode: 'custom', tier: null, label: diffLabel.textContent,
+      clues: 81 - Array.from(puzzle).filter(v => !v).length,
+      nodes: -1, tech: null, multi: multiSolve
+    };
+    seconds = 0;
+    startTimer();
+    render();
+    closeCustom();
+  }
+
+  function syncModeUI(){
+    const deep = mode === 'deep';
+    clueBox.classList.toggle('hidden', deep);
+    diffBox.classList.toggle('hidden', !deep);
+    const names = deep ? DEEP_LABELS : BASE_LABELS;
+    [...diffSel.options].forEach(o => { o.textContent = names[o.value] || o.textContent; });
+    modeSel.value = mode;
+  }
+
+  function loadPrefs(){
+    try {
+      const s = JSON.parse(localStorage.getItem('sudoku.prefs') || 'null');
+      if (s){
+        mode = ['legacy','legacyUnique','deep'].includes(s.mode) ? s.mode : (s.deep ? 'deep' : 'legacy');
+        if (s.clues) clueCount.value = s.clues;
+        if (s.diff && DEEP_TIERS[s.diff]) diffSel.value = s.diff;
+        assistOn = !!s.assist;
+      }
+    } catch (e) {}
+    modeSel.value = mode;
+  }
+
+  function savePrefs(){
+    try {
+      localStorage.setItem('sudoku.prefs', JSON.stringify({
+        mode, clues: +clueCount.value || LEGACY_DEF, diff: diffSel.value, assist: assistOn
+      }));
+    } catch (e) {}
+  }
+
+  function newGame(){
+    if (generating) return;
+    closeTrialModal();
+    generating = true;
+    solved = false;
+    multiSolve = false;
+    trialSnapshot = null;
+    trialCells.clear();
+    updateTrialUI();
+    syncModeUI();
+    diffLabel.textContent = mode === 'deep' ? ('深度 · ' + DEEP_TIERS[diffSel.value].label)
+                          : (mode === 'legacyUnique' ? '初代唯一' : '初代');
+
+    overlay.innerHTML = '<div class="card"><div class="spin"></div><p>生成中…</p></div>';
+    overlay.classList.remove('hidden');
+
+    setTimeout(() => {
+      const made = mode === 'deep' ? generateDeep()
+                 : mode === 'legacyUnique' ? generateLegacyUnique()
+                 : generateLegacy();
+      const full = made.full;
+      solution = full;
+      puzzle = made.p;
+      multiSolve = !!made.multi;
+      values = Uint8Array.from(puzzle);
+      currentInfo = {
+        mode,
+        tier: mode === 'deep' ? diffSel.value : null,
+        label: made.label,
+        clues: 81 - Array.from(puzzle).filter(v => !v).length,
+        nodes: made.nodes,
+        tech: made.tech || null,
+        multi: !!made.multi
+      };
+      notes = Array.from({length:81}, () => new Set());
+      history = [];
+      selected = -1;
+      mistakes = 0;
+      notesMode = false;
+      tempNotes = false;
+      tempUsed = false;
+      padSig = '';
+      updateNotesUI();
+      mistakeEl.textContent = '0';
+      diffLabel.textContent = made.label;
+      seconds = 0;
+      startTimer();
+      render();
+      overlay.classList.add('hidden');
+      generating = false;
+    }, 30);
+  }
+
+  function gridText(arr, empty){
+    const cells = Array.from(arr, v => v ? String(v) : empty);
+    let out = '';
+    for (let r = 0; r < 9; r++){
+      const row = cells.slice(r * 9, r * 9 + 9);
+      out += row.slice(0, 3).join(' ') + ' | ' + row.slice(3, 6).join(' ') + ' | ' + row.slice(6).join(' ') + '\n';
+      if (r === 2 || r === 5) out += '------+-------+------\n';
+    }
+    return out;
+  }
+
+  function buildExport(){
+    const info = currentInfo || {};
+    const p81 = Array.from(puzzle, v => v ? String(v) : '.').join('');
+    const s81 = Array.from(solution, v => v ? String(v) : '.').join('');
+    const techLine = info.tech
+      ? (info.tech.solved ? '技巧栈可独立解完' : '技巧栈卡住（需回溯）')
+      : (info.mode === 'deep' ? '未启用技巧栈判定' : '');
+    const head = '数独 · ' + (info.label || '自定义') + '\n'
+      + '线索 ' + (info.clues != null ? info.clues : '?') + ' · ' + (info.multi ? '可能多解' : '唯一解')
+      + (techLine ? ' · ' + techLine : '') + '\n'
+      + '导出 ' + new Date().toLocaleString('zh-CN', { hour12:false });
+    return head + '\n\n题目（. 为空格）\n' + gridText(puzzle, '.')
+      + '\n' + p81 + '\n\n解答' + (info.multi ? '（参考解，题目可能多解）' : '')
+      + '\n' + gridText(solution, '.') + '\n' + s81 + '\n';
+  }
+
+  function openExport(){
+    if (!currentInfo) return;
+    exportText.value = buildExport();
+    exportMeta.textContent = currentInfo.label + ' · ' + currentInfo.clues + ' 线索';
+    exportHint.textContent = '';
+    exportModal.classList.remove('hidden');
+    exportText.focus();
+    exportText.select();
+  }
+
+  function copyExport(){
+    const fallback = () => {
+      try {
+        exportText.focus(); exportText.select();
+        document.execCommand('copy');
+        exportHint.textContent = '已复制到剪贴板';
+      } catch (e){
+        exportHint.textContent = '复制失败，请手动全选复制';
+      }
+    };
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(exportText.value).then(
+        () => { exportHint.textContent = '已复制到剪贴板'; },
+        fallback
+      );
+    } else fallback();
+  }
+
+  function downloadExport(){
+    try {
+      const blob = new Blob([exportText.value], { type:'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sudoku-' + stamp + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      if (a.remove) a.remove(); else a.parentNode.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      exportHint.textContent = '已开始下载（微信内如被拦截，请改用“复制”）';
+    } catch (e){
+      exportHint.textContent = '下载失败，请改用“复制”';
+    }
+  }
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b === btn));
+      document.querySelectorAll('.tab-page').forEach(p => p.classList.toggle('hidden', p.id !== 'tab-' + btn.dataset.tab));
+    });
+  });
+
+  boardEl.addEventListener('click', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    if (+cell.dataset.i !== selected) clearTempNotes();
+    selected = +cell.dataset.i;
+    render();
+  });
+
+  document.addEventListener('keydown', e => {
+    const inField = !!(e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT'));
+    const onButton = !!(e.target && e.target.tagName === 'BUTTON');
+    const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter';
+    const numpadDot = e.code === 'NumpadDecimal'
+      || (e.location === 3 && (e.key === '.' || e.key === ',' || e.key === 'Delete'));
+    const isMinus = e.key === '-' || e.key === 'Subtract' || e.code === 'NumpadSubtract';
+    // 主键盘 Delete（小键盘 Delete 已由 numpadDot 捕获）
+    const isDelete = e.key === 'Delete' && e.location !== 3 && e.code !== 'NumpadDecimal';
+
+    if (e.key === 'Escape'){
+      if (trialModalOpen()){ closeTrialModal(); return; }
+      if (!customModal.classList.contains('hidden')){ closeCustom(); return; }
+      if (!infoModal.classList.contains('hidden')){ infoModal.classList.add('hidden'); return; }
+      if (!exportModal.classList.contains('hidden')){ exportModal.classList.add('hidden'); return; }
+    }
+
+    // 回车：确认框打开时 = 确认并关闭；假设中 = 弹确认框
+    if (isEnter && !inField && !onButton){
+      if (trialModalOpen()){
+        e.preventDefault();
+        if (e.repeat) return;
+        confirmTrial();
+        closeTrialModal();
+        return;
+      }
+      if (trialSnapshot){
+        e.preventDefault();
+        if (e.repeat) return;
+        openTrialModal();
+        return;
+      }
+    }
+
+    if (numpadDot && !inField && !onButton){
+      e.preventDefault();
+      if (trialModalOpen()) closeTrialModal();
+      return;
+    }
+
+    // 主键盘 Delete：假设中（含确认框打开）= 放弃假设
+    if (isDelete && !inField && !onButton){
+      if (trialModalOpen() || trialSnapshot){
+        e.preventDefault();
+        closeTrialModal();
+        if (trialSnapshot) cancelTrial();
+        return;
+      }
+    }
+
+    // “-”：假设确认框 → 放弃；说明弹窗 → 关闭
+    if (isMinus && !inField){
+      if (trialModalOpen()){
+        e.preventDefault();
+        closeTrialModal();
+        cancelTrial();
+        return;
+      }
+      if (!infoModal.classList.contains('hidden')){
+        e.preventDefault();
+        infoModal.classList.add('hidden');
+        return;
+      }
+    }
+
+    if (e.key === '/' && !inField && !onButton){
+      const otherModal = !customModal.classList.contains('hidden')
+                      || !infoModal.classList.contains('hidden')
+                      || !exportModal.classList.contains('hidden');
+      if (otherModal) return;
+      e.preventDefault();
+      if (trialModalOpen()){ confirmTrial(); closeTrialModal(); return; }
+      if (trialSnapshot){ openTrialModal(); return; }
+      startTrial();
+      return;
+    }
+
+    if (modalOpen()) return;
+    if (inField) return;
+
+    if ((e.key === 'n' || e.key === 'N') && !onButton){
+      newGame();
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key >= '1' && e.key <= '9'){
+      inputDigit(+e.key);
+      e.preventDefault();
+    } else if (e.key === 'Backspace'){
+      undo();
+      e.preventDefault();
+    } else if (e.key === 'Delete'){
+      inputDigit(0);
+      e.preventDefault();
+    } else if (e.key === '+' || e.key === 'Add'){
+      tempNotes = !tempNotes;
+      tempUsed = false;
+      if (tempNotes) notesMode = false;
+      updateNotesUI();
+      e.preventDefault();
+    } else if (isMinus){
+      if (notesMode || tempNotes){
+        clearCellNotes();
+      } else {
+        infoModal.classList.remove('hidden');
+      }
+      e.preventDefault();
+    } else if (e.key === '*' || e.code === 'NumpadMultiply'){
+      toggleAssist();
+      e.preventDefault();
+    } else if (e.key.startsWith('Arrow')){
+      if (selected < 0) selected = 40;
+      let r = rowOf(selected), c = colOf(selected);
+      if (e.key === 'ArrowUp') r = Math.max(0, r - 1);
+      if (e.key === 'ArrowDown') r = Math.min(8, r + 1);
+      if (e.key === 'ArrowLeft') c = Math.max(0, c - 1);
+      if (e.key === 'ArrowRight') c = Math.min(8, c + 1);
+      selected = r * 9 + c;
+      clearTempNotes();
+      render();
+      e.preventDefault();
+    }
+  });
+
+  padEl.addEventListener('click', e => {
+    const b = e.target.closest('.key');
+    if (!b) return;
+    if (b.disabled) return;
+    const k = b.dataset.k;
+    inputDigit(k === '⌫' ? 0 : +k);
+  });
+
+  notesBtn.addEventListener('click', () => {
+    notesMode = !notesMode;
+    if (notesMode) tempNotes = false;
+    updateNotesUI();
+  });
+
+  assistBtn.addEventListener('click', toggleAssist);
+
+  trialBtn.addEventListener('click', () => {
+    if (trialSnapshot) openTrialModal();
+    else startTrial();
+  });
+
+  function clearCellNotes(){
+    if (solved || selected < 0 || puzzle[selected]) return;
+    const i = selected;
+    if (notes[i].size){
+      pushHistory(i);
+      notes[i].clear();
+      if (trialSnapshot) trialCells.add(i);
+      render();
+    }
+    if (tempNotes){ tempNotes = false; tempUsed = false; updateNotesUI(); }
+  }
+
+  function clearTempNotes(){
+    if (tempNotes){ tempNotes = false; tempUsed = false; updateNotesUI(); }
+  }
+
+  function updateNotesUI(){
+    const active = notesMode || tempNotes;
+    notesBtn.classList.toggle('on', active);
+    notesBtn.textContent = tempNotes ? '笔记 · 临时' : (notesMode ? '笔记 · 开' : '笔记');
+  }
+
+  document.getElementById('hintBtn').addEventListener('click', hint);
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  confirmTrialBtn.addEventListener('click', confirmTrial);
+  cancelTrialBtn.addEventListener('click', cancelTrial);
+  trialConfirm.addEventListener('click', () => { confirmTrial(); closeTrialModal(); });
+  trialCancel.addEventListener('click', () => { closeTrialModal(); });
+  trialModal.addEventListener('click', e => { if (e.target === trialModal) closeTrialModal(); });
+  customBtn.addEventListener('click', openCustom);
+  customStart.addEventListener('click', startCustom);
+  customCancel.addEventListener('click', closeCustom);
+  exportBtn.addEventListener('click', openExport);
+  document.getElementById('exportClose').addEventListener('click', () => exportModal.classList.add('hidden'));
+  document.getElementById('exportCopy').addEventListener('click', copyExport);
+  document.getElementById('exportDownload').addEventListener('click', downloadExport);
+  infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+  document.getElementById('infoClose').addEventListener('click', () => infoModal.classList.add('hidden'));
+  document.getElementById('newGame').addEventListener('click', newGame);
+
+  [infoModal, exportModal].forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+  });
+
+  modeSel.addEventListener('change', () => {
+    mode = modeSel.value;
+    savePrefs();
+    newGame();
+  });
+
+  clueCount.addEventListener('change', () => {
+    if (mode !== 'deep'){ savePrefs(); newGame(); }
+  });
+  clueCount.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && mode !== 'deep'){ savePrefs(); newGame(); }
+  });
+
+  diffSel.addEventListener('change', () => {
+    savePrefs();
+    newGame();
+  });
+
+  loadPrefs();
+  syncModeUI();
+  updateNotesUI();
+  updateAssistUI();
+  renderPad();
+  newGame();
+})();
+</script>
+</body>
+</html>

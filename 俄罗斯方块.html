@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>俄罗斯方块</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #101218; color: #eee;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 2px; }
+  #hud { font-size: 14px; color: #aaa; height: 20px; }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    width: min(58vw, 280px);
+    aspect-ratio: 1 / 2;
+    background: #000;
+    gap: 1px;
+    padding: 2px;
+    border-radius: 8px;
+  }
+  #board div { background: #171a21; border-radius: 2px; }
+  .c1 { background: #00e5ff !important; }
+  .c2 { background: #ffe100 !important; }
+  .c3 { background: #b44cff !important; }
+  .c4 { background: #2979ff !important; }
+  .c5 { background: #ff9800 !important; }
+  .c6 { background: #00e676 !important; }
+  .c7 { background: #ff5252 !important; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button {
+    padding: 9px 14px; border: 1px solid #444; border-radius: 8px;
+    background: #242833; color: #eee; font-size: 14px; cursor: pointer;
+  }
+  button:active { background: #333a49; }
+  .controls { display: grid; grid-template-columns: repeat(3, 64px); gap: 6px; }
+  .controls button { width: 64px; height: 46px; padding: 0; }
+  .controls .empty { visibility: hidden; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>俄罗斯方块</h1>
+  <div id="hud">分数：<span id="score">0</span> · 消行：<span id="lines">0</span> · <span id="msg">← → ↓ ↑ 空格</span></div>
+  <div id="board"></div>
+  <div class="controls">
+    <button class="empty"></button>
+    <button data-act="rotate">↻</button>
+    <button class="empty"></button>
+    <button data-act="left">←</button>
+    <button data-act="down">↓</button>
+    <button data-act="right">→</button>
+    <button class="empty"></button>
+    <button data-act="drop">硬降</button>
+    <button class="empty"></button>
+  </div>
+  <div class="row">
+    <button id="pause">暂停 / 继续</button>
+    <button id="restart">重新开始</button>
+  </div>
+</div>
+
+<script>
+const COLS = 10;
+const ROWS = 20;
+const KEY = 'tetris-dom-v1';
+
+const boardEl = document.getElementById('board');
+const scoreEl = document.getElementById('score');
+const linesEl = document.getElementById('lines');
+const msgEl = document.getElementById('msg');
+
+const cells = [];
+for (let i = 0; i < COLS * ROWS; i++) {
+  const d = document.createElement('div');
+  boardEl.appendChild(d);
+  cells.push(d);
+}
+
+const SHAPES = [
+  { c: 1, m: [[1, 1, 1, 1]] },
+  { c: 2, m: [[1, 1], [1, 1]] },
+  { c: 3, m: [[0, 1, 0], [1, 1, 1]] },
+  { c: 4, m: [[1, 0, 0], [1, 1, 1]] },
+  { c: 5, m: [[0, 0, 1], [1, 1, 1]] },
+  { c: 6, m: [[0, 1, 1], [1, 1, 0]] },
+  { c: 7, m: [[1, 1, 0], [0, 1, 1]] }
+];
+
+let state;
+let timer = null;
+
+function newPiece() {
+  const s = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+  return {
+    m: s.m.map(r => r.slice()),
+    x: Math.floor((COLS - s.m[0].length) / 2),
+    y: 0,
+    c: s.c
+  };
+}
+
+function initState() {
+  return {
+    board: Array.from({ length: ROWS }, () => Array(COLS).fill(0)),
+    piece: newPiece(),
+    score: 0,
+    lines: 0,
+    over: false,
+    paused: false
+  };
+}
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (
+      s &&
+      Array.isArray(s.board) &&
+      s.board.length === ROWS &&
+      s.board.every(r => Array.isArray(r) && r.length === COLS) &&
+      s.piece &&
+      Array.isArray(s.piece.m)
+    ) {
+      state = {
+        board: s.board,
+        piece: s.piece,
+        score: +s.score || 0,
+        lines: +s.lines || 0,
+        over: !!s.over,
+        paused: !!s.paused
+      };
+      return;
+    }
+  } catch (e) {}
+  state = initState();
+}
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+
+function render() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const v = state.board[y][x];
+      const idx = y * COLS + x;
+      cells[idx].className = v ? 'c' + v : '';
+    }
+  }
+
+  if (!state.over) {
+    const p = state.piece;
+    for (let r = 0; r < p.m.length; r++) {
+      for (let c = 0; c < p.m[r].length; c++) {
+        if (!p.m[r][c]) continue;
+        const x = p.x + c;
+        const y = p.y + r;
+        if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+          cells[y * COLS + x].className = 'c' + p.c;
+        }
+      }
+    }
+  }
+
+  scoreEl.textContent = state.score;
+  linesEl.textContent = state.lines;
+  if (state.over) msgEl.textContent = '游戏结束，按 R 重开';
+  else if (state.paused) msgEl.textContent = '已暂停';
+  else msgEl.textContent = '← → ↓ ↑ 空格';
+}
+
+function collide(p, dx = 0, dy = 0, m = p.m) {
+  for (let r = 0; r < m.length; r++) {
+    for (let c = 0; c < m[r].length; c++) {
+      if (!m[r][c]) continue;
+      const x = p.x + c + dx;
+      const y = p.y + r + dy;
+      if (x < 0 || x >= COLS || y >= ROWS) return true;
+      if (y >= 0 && state.board[y][x]) return true;
+    }
+  }
+  return false;
+}
+
+function clearLines() {
+  let count = 0;
+  const kept = [];
+  for (const row of state.board) {
+    if (row.every(v => v)) count++;
+    else kept.push(row);
+  }
+  while (kept.length < ROWS) kept.unshift(Array(COLS).fill(0));
+  state.board = kept;
+
+  if (count) {
+    state.lines += count;
+    state.score += [0, 100, 300, 500, 800][count] || 0;
+  }
+  return count;
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  timer = setInterval(tick, Math.max(120, 600 - state.lines * 15));
+}
+
+function lockPiece() {
+  const p = state.piece;
+  for (let r = 0; r < p.m.length; r++) {
+    for (let c = 0; c < p.m[r].length; c++) {
+      if (!p.m[r][c]) continue;
+      const x = p.x + c;
+      const y = p.y + r;
+      if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+        state.board[y][x] = p.c;
+      }
+    }
+  }
+
+  const cleared = clearLines();
+  state.piece = newPiece();
+
+  if (collide(state.piece)) state.over = true;
+  if (cleared) resetTimer();
+
+  save();
+  render();
+}
+
+function tick() {
+  if (state.over || state.paused) return;
+
+  if (!collide(state.piece, 0, 1)) {
+    state.piece.y++;
+    save();
+    render();
+  } else {
+    lockPiece();
+  }
+}
+
+function move(dx) {
+  if (state.over || state.paused) return;
+  if (!collide(state.piece, dx, 0)) {
+    state.piece.x += dx;
+    save();
+    render();
+  }
+}
+
+function softDrop() {
+  if (state.over || state.paused) return;
+  if (!collide(state.piece, 0, 1)) {
+    state.piece.y++;
+    save();
+    render();
+  } else {
+    lockPiece();
+  }
+}
+
+function rotate() {
+  if (state.over || state.paused) return;
+  const m = state.piece.m;
+  const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
+
+  for (const kick of [0, -1, 1, -2, 2]) {
+    if (!collide(state.piece, kick, 0, rotated)) {
+      state.piece.m = rotated;
+      state.piece.x += kick;
+      save();
+      render();
+      return;
+    }
+  }
+}
+
+function hardDrop() {
+  if (state.over || state.paused) return;
+  while (!collide(state.piece, 0, 1)) state.piece.y++;
+  lockPiece();
+}
+
+function togglePause() {
+  if (state.over) return;
+  state.paused = !state.paused;
+  save();
+  render();
+}
+
+function restart() {
+  state = initState();
+  save();
+  render();
+  resetTimer();
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    hardDrop();
+    return;
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+    e.preventDefault(); move(-1); return;
+  }
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+    e.preventDefault(); move(1); return;
+  }
+  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+    e.preventDefault(); softDrop(); return;
+  }
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+    e.preventDefault(); rotate(); return;
+  }
+  if (e.key === 'p' || e.key === 'P') {
+    togglePause(); return;
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    restart();
+  }
+});
+
+document.querySelectorAll('[data-act]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const act = btn.dataset.act;
+    if (act === 'left') move(-1);
+    if (act === 'right') move(1);
+    if (act === 'down') softDrop();
+    if (act === 'rotate') rotate();
+    if (act === 'drop') hardDrop();
+  });
+});
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('restart').addEventListener('click', restart);
+
+load();
+render();
+resetTimer();
+</script>
+</body>
+</html>

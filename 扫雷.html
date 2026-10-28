@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>扫雷 Minesweeper</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 20px 10px;
+    min-height: 100vh;
+    background: #008080;
+    font-family: Tahoma, "Microsoft YaHei", Verdana, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    width: max-content;
+    margin: 0 auto;
+  }
+
+  /* ---------- 难度菜单栏 ---------- */
+  .menubar {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    margin-bottom: 5px;
+    background: #c0c0c0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+  }
+  .menu-btn {
+    font-family: inherit;
+    font-size: 13px;
+    color: #000;
+    padding: 4px 12px;
+    background: #c0c0c0;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .menu-btn:hover { background: #d6d6d6; }
+  .menu-btn.active {
+    background: #b6b6b6;
+    font-weight: bold;
+    border-top: 1px solid #808080;
+    border-left: 1px solid #808080;
+    border-right: 1px solid #fff;
+    border-bottom: 1px solid #fff;
+  }
+
+  /* ---------- 自定义面板 ---------- */
+  .custom-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    margin-bottom: 5px;
+    font-size: 13px;
+    color: #000;
+    background: #c0c0c0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+  }
+  .custom-bar[hidden] { display: none; }
+  .custom-bar label { display: flex; align-items: center; gap: 4px; }
+  .custom-bar input {
+    width: 58px;
+    padding: 3px 4px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #000;
+    background: #fff;
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+  }
+  .custom-bar .start-btn {
+    font-family: inherit; font-size: 13px; padding: 4px 14px;
+    background: #c0c0c0; color: #000; cursor: pointer;
+    border-top: 2px solid #fff; border-left: 2px solid #fff;
+    border-right: 2px solid #808080; border-bottom: 2px solid #808080;
+  }
+  .custom-bar .start-btn:active {
+    border-top-color: #808080; border-left-color: #808080;
+    border-right-color: #fff; border-bottom-color: #fff;
+  }
+
+  /* ---------- 游戏主框 ---------- */
+  .game {
+    background: #c0c0c0;
+    padding: 6px;
+    border-top: 3px solid #fff;
+    border-left: 3px solid #fff;
+    border-right: 3px solid #808080;
+    border-bottom: 3px solid #808080;
+  }
+
+  /* ---------- 状态面板 ---------- */
+  .panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    background: #c0c0c0;
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+  }
+
+  .counter {
+    background: #000;
+    color: #ff0000;
+    font-family: "Courier New", Consolas, monospace;
+    font-weight: bold;
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: 1px;
+    padding: 4px 5px 3px;
+    min-width: 50px;
+    text-align: center;
+    text-shadow: 0 0 5px rgba(255, 0, 0, .65);
+    border: 1px solid #808080;
+  }
+
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .stat-label {
+    font-size: 11px;
+    line-height: 1;
+    color: #333;
+    letter-spacing: 1px;
+  }
+
+  /* 时钟样式的用时显示 */
+  .clock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: #000;
+    color: #ff3b30;
+    font-family: "Courier New", Consolas, monospace;
+    font-weight: bold;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: 1px;
+    padding: 4px 8px 3px;
+    min-width: 86px;
+    text-shadow: 0 0 6px rgba(255, 59, 48, .55);
+    border: 1px solid #808080;
+  }
+  .clock-ico {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: #ff6b6b;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .face {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 21px;
+    line-height: 1;
+    background: #c0c0c0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #808080;
+    border-bottom: 2px solid #808080;
+  }
+  .face:active {
+    border-top-color: #808080;
+    border-left-color: #808080;
+    border-right-color: #fff;
+    border-bottom-color: #fff;
+  }
+
+  /* ---------- 雷区 ---------- */
+  .board-wrap {
+    border-top: 3px solid #808080;
+    border-left: 3px solid #808080;
+    border-right: 3px solid #fff;
+    border-bottom: 3px solid #fff;
+    background: #c0c0c0;
+  }
+
+  .board {
+    display: grid;
+    line-height: 0;
+  }
+
+  .cell {
+    width: var(--cell, 20px);
+    height: var(--cell, 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--cell, 20px) * 0.7);
+    font-weight: bold;
+    font-family: Tahoma, Verdana, sans-serif;
+    background: #c0c0c0;
+    cursor: default;
+    overflow: hidden;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #7b7b7b;
+    border-bottom: 2px solid #7b7b7b;
+  }
+
+  .cell.pressed {
+    border-top-color: #7b7b7b;
+    border-left-color: #7b7b7b;
+    border-right-color: #fff;
+    border-bottom-color: #fff;
+  }
+
+  .cell.revealed {
+    border: 1px solid #808080;
+    cursor: default;
+  }
+
+  .cell.exploded { background: #ff0000; }
+
+  /* 地雷图标：SVG 绘制，随格子缩放 */
+  .cell svg.mine { width: 78%; height: 78%; display: block; }
+  .cell.exploded svg.mine { animation: burst .45s ease-out; }
+  @keyframes burst {
+    0% { transform: scale(.35); }
+    70% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  /* 防误触：第一下点击地雷只警告，限时内再点一次才爆 */
+  .cell.armed { box-shadow: inset 0 0 0 2px #f59e0b; }
+  .cell.shake { animation: shakeCell .35s ease; }
+  @keyframes shakeCell {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-2px); }
+    40% { transform: translateX(2px); }
+    60% { transform: translateX(-1.5px); }
+    80% { transform: translateX(1.5px); }
+  }
+
+  .toast {
+    margin-top: 8px;
+    min-height: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: #fff59d;
+    opacity: 0;
+    transition: opacity .18s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* 数字颜色（经典配色） */
+  .n1 { color: #0000ff; }
+  .n2 { color: #008000; }
+  .n3 { color: #ff0000; }
+  .n4 { color: #000080; }
+  .n5 { color: #800000; }
+  .n6 { color: #008080; }
+  .n7 { color: #000000; }
+  .n8 { color: #808080; }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #d8f0f0;
+    text-align: center;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="menubar">
+    <button class="menu-btn active" data-level="beginner">初级</button>
+    <button class="menu-btn" data-level="intermediate">中级</button>
+    <button class="menu-btn" data-level="expert">高级</button>
+    <button class="menu-btn" data-level="fill">满屏</button>
+    <button class="menu-btn" data-level="custom">自定义</button>
+  </div>
+
+  <div class="custom-bar" id="customBar" hidden>
+    <label>行 <input type="number" id="cRows" min="5" max="60" value="16"></label>
+    <label>列 <input type="number" id="cCols" min="5" max="80" value="30"></label>
+    <label>雷 <input type="number" id="cMines" min="1" max="9999" value="99"></label>
+    <button class="start-btn" id="customStart">▶ 开始</button>
+  </div>
+
+  <div class="game">
+    <div class="panel">
+      <div class="stat">
+        <span class="stat-label">剩余雷</span>
+        <div class="counter" id="mineCounter">010</div>
+      </div>
+      <button class="face" id="face" title="重新开始 (点击笑脸)">🙂</button>
+      <div class="stat">
+        <span class="stat-label">时长</span>
+        <div class="clock" title="本局用时">
+          <svg class="clock-ico" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7.2V12l3.4 2"/>
+          </svg>
+          <span id="timer">00:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="hint">
+    左键翻开 · 右键插旗 / 问号 · <b>Chording</b>：按住数字格（邻居会预览压下）再按右键，或直接左右键同按 / 中键<br>
+    <b>地雷要 1 秒内连点两次才会引爆</b>（防误触，超时或点了别处就失效）<br>
+    <b>满屏</b>按窗口自动铺满雷区，<b>自定义</b>可自己填行 / 列 / 雷数<br>
+    手机：轻点翻开，长按插旗
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============ 配置 ============ */
+  let CELL = 20;
+  const LEVELS = {
+    beginner:     { rows: 9,  cols: 9,  mines: 10 },
+    intermediate: { rows: 16, cols: 16, mines: 40 },
+    expert:       { rows: 16, cols: 30, mines: 99 }
+  };
+
+  /* ============ DOM ============ */
+  const boardEl  = document.getElementById('board');
+  const faceEl   = document.getElementById('face');
+  const mineEl   = document.getElementById('mineCounter');
+  const timerEl  = document.getElementById('timer');
+  const menuBtns = document.querySelectorAll('.menubar .menu-btn');
+  const customBar = document.getElementById('customBar');
+  const cRows = document.getElementById('cRows');
+  const cCols = document.getElementById('cCols');
+  const cMines = document.getElementById('cMines');
+  const customStart = document.getElementById('customStart');
+
+  /* ============ 状态 ============ */
+  let currentLevel = 'beginner';
+  let rows = 9, cols = 9, totalMines = 10;
+  let grid = [];
+  let revealedCount = 0;
+  let flagCount = 0;
+  let started = false;
+  let over = false;
+  let seconds = 0;
+  let timerId = null;
+
+  let pendingLeft = null;   // 鼠标左键按下待释放
+  let pressEl = null;
+  let touchInfo = null;
+  let touchTimer = null;
+  let chordFired = false;
+  let armedMine = null;     // 已警告过一次的雷 {r, c, until}
+  let armTimer = null;
+  const ARM_WINDOW = 1200;  // 第二次点击必须在 1.2 秒内，否则警告失效
+  let toastTimer = null;
+
+  const MINE_SVG =
+    '<svg class="mine" viewBox="0 0 32 32" aria-hidden="true">' +
+      '<g stroke="#0f172a" stroke-width="2.4" stroke-linecap="round">' +
+        '<line x1="16" y1="2.6" x2="16" y2="29.4"/>' +
+        '<line x1="2.6" y1="16" x2="29.4" y2="16"/>' +
+        '<line x1="6.6" y1="6.6" x2="25.4" y2="25.4"/>' +
+        '<line x1="25.4" y1="6.6" x2="6.6" y2="25.4"/>' +
+      '</g>' +
+      '<circle cx="16" cy="16" r="9" fill="#0f172a"/>' +
+      '<circle cx="16" cy="16" r="7.6" fill="#243042"/>' +
+      '<circle cx="12.6" cy="12.4" r="2.3" fill="#e2e8f0" opacity=".8"/>' +
+      '<circle cx="16" cy="16" r="2.8" fill="#0b1220"/>' +
+    '</svg>';
+
+  /* ============ 工具函数 ============ */
+  function forNeighbors(r, c, fn) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) fn(nr, nc);
+      }
+    }
+  }
+
+  function pad3(n) {
+    if (n < 0) return '-' + String(Math.min(99, -n)).padStart(2, '0');
+    return String(Math.min(999, n)).padStart(3, '0');
+  }
+
+  function cellEl(r, c) {
+    return boardEl.children[r * cols + c];
+  }
+
+  function showToast(msg, ms) {
+    const el = document.getElementById('toast');
+    el.textContent = msg || '';
+    el.classList.toggle('show', !!msg);
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    if (msg) toastTimer = setTimeout(() => { el.classList.remove('show'); }, ms || 2200);
+  }
+
+  function clearPressed() {
+    if (pressEl) {
+      pressEl.classList.remove('pressed');
+      pressEl = null;
+    }
+  }
+
+  /* ============ Chording 预览 ============ */
+  let chordPreviewEls = [];
+
+  function clearChordPreview() {
+    chordPreviewEls.forEach(el => el.classList.remove('pressed'));
+    chordPreviewEls = [];
+  }
+
+  // 按住数字格时，把周围将展开的格子压下去预览
+  function previewChord(r, c) {
+    clearChordPreview();
+    const cell = grid[r] && grid[r][c];
+    if (!cell || !cell.revealed || cell.adj === 0) return;
+    forNeighbors(r, c, (nr, nc) => {
+      const n = grid[nr][nc];
+      if (!n.revealed && !n.flagged) {
+        const el = cellEl(nr, nc);
+        if (el) {
+          el.classList.add('pressed');
+          chordPreviewEls.push(el);
+        }
+      }
+    });
+  }
+
+  /* ============ 配置：预设 / 满屏 / 自定义 ============ */
+  const FILL_CELL = 26;      // 满屏模式的基准格子尺寸
+  const FILL_DENSITY = 0.16; // 满屏模式雷密度
+
+  function computeFillConfig() {
+    const availW = Math.max(180, window.innerWidth - 44);
+    const availH = Math.max(180, window.innerHeight - 250);
+    const cols = Math.max(9, Math.min(80, Math.floor(availW / FILL_CELL)));
+    const rows = Math.max(9, Math.min(60, Math.floor(availH / FILL_CELL)));
+    const mines = Math.max(10, Math.round(rows * cols * FILL_DENSITY));
+    return { rows, cols, mines };
+  }
+
+  function clampInt(v, min, max, fallback) {
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function readCustomConfig() {
+    const rows = clampInt(cRows.value, 5, 60, 16);
+    const cols = clampInt(cCols.value, 5, 80, 30);
+    const maxMines = Math.max(1, rows * cols - 9);
+    const mines = clampInt(cMines.value, 1, maxMines, Math.min(99, maxMines));
+    cRows.value = rows; cCols.value = cols; cMines.value = mines;
+    return { rows, cols, mines };
+  }
+
+  function buildConfig(levelKey) {
+    if (levelKey === 'fill') return computeFillConfig();
+    if (levelKey === 'custom') return readCustomConfig();
+    return LEVELS[levelKey] || LEVELS.beginner;
+  }
+
+  /* ============ 初始化 / 新游戏 ============ */
+  function newGame(levelKey) {
+    if (levelKey) currentLevel = levelKey;
+    const cfg = buildConfig(currentLevel);
+    rows = cfg.rows;
+    cols = cfg.cols;
+    totalMines = cfg.mines;
+
+    grid = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        row.push({
+          mine: false, revealed: false, flagged: false,
+          question: false, adj: 0, exploded: false, wrongFlag: false
+        });
+      }
+      grid.push(row);
+    }
+
+    revealedCount = 0;
+    flagCount = 0;
+    started = false;
+    over = false;
+    seconds = 0;
+
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+    pendingLeft = null;
+    touchInfo = null;
+    pressEl = null;
+
+    faceEl.textContent = '🙂';
+    armedMine = null;
+    if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+    showToast('');
+    updateMineCounter();
+    updateTimer();
+    buildBoard();
+
+    menuBtns.forEach(b => b.classList.toggle('active', b.dataset.level === currentLevel));
+    customBar.hidden = currentLevel !== 'custom';
+  }
+
+  // 根据屏幕大小自适应格子尺寸（电脑上更大，手机上不溢出太多）
+  function computeCell() {
+    const padX = 44;      // body 左右留白
+    const reserveY = 250; // 菜单栏 + 状态面板 + 提示文字
+    const availW = Math.max(180, window.innerWidth - padX);
+    const availH = Math.max(180, window.innerHeight - reserveY);
+    return Math.max(18, Math.min(56, Math.floor(Math.min(availW / cols, availH / rows))));
+  }
+
+  function applyCellSize() {
+    CELL = computeCell();
+    boardEl.style.setProperty('--cell', CELL + 'px');
+    boardEl.style.gridTemplateColumns = `repeat(${cols}, ${CELL}px)`;
+  }
+
+  function buildBoard() {
+    applyCellSize();
+    const frag = document.createDocumentFragment();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = document.createElement('div');
+        d.className = 'cell';
+        d.dataset.r = r;
+        d.dataset.c = c;
+        frag.appendChild(d);
+      }
+    }
+    boardEl.replaceChildren(frag);
+  }
+
+  /* ============ 渲染 ============ */
+  function renderCell(r, c) {
+    const cell = grid[r][c];
+    const el = cellEl(r, c);
+    el.className = 'cell';
+    el.textContent = '';
+
+    if (cell.revealed) {
+      el.classList.add('revealed');
+      if (cell.mine) {
+        el.innerHTML = MINE_SVG;
+        if (cell.exploded) el.classList.add('exploded');
+      } else if (cell.adj > 0) {
+        el.textContent = cell.adj;
+        el.classList.add('n' + cell.adj);
+      }
+    } else {
+      if (cell.wrongFlag) {
+        el.textContent = '❌';
+      } else if (cell.flagged) {
+        el.textContent = '🚩';
+      } else if (cell.question) {
+        el.textContent = '❓';
+      }
+    }
+  }
+
+  function updateMineCounter() {
+    mineEl.textContent = pad3(totalMines - flagCount);
+  }
+
+  function updateTimer() {
+    timerEl.textContent = fmtClock(seconds);
+  }
+
+  // 秒 → 时钟显示 mm:ss
+  function fmtClock(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(Math.min(99, m)).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+
+  /* ============ 计时器 ============ */
+  function startTimer() {
+    if (timerId) return;
+    timerId = setInterval(() => {
+      if (seconds < 5999) {
+        seconds++;
+        updateTimer();
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+
+  /* ============ 布雷 ============ */
+  function placeMines(fr, fc) {
+    // 首次点击的 3×3 区域不放雷，保证第一下是空白的
+    const forbidden = new Set();
+    forbidden.add(fr * cols + fc);
+    forNeighbors(fr, fc, (r, c) => forbidden.add(r * cols + c));
+
+    const candidates = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!forbidden.has(r * cols + c)) candidates.push([r, c]);
+      }
+    }
+
+    // Fisher–Yates 洗牌
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = candidates[i];
+      candidates[i] = candidates[j];
+      candidates[j] = tmp;
+    }
+
+    const n = Math.min(totalMines, candidates.length);
+    for (let i = 0; i < n; i++) {
+      const [r, c] = candidates[i];
+      grid[r][c].mine = true;
+    }
+
+    // 计算周围雷数
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c].mine) continue;
+        let cnt = 0;
+        forNeighbors(r, c, (nr, nc) => { if (grid[nr][nc].mine) cnt++; });
+        grid[r][c].adj = cnt;
+      }
+    }
+  }
+
+  /* ============ 核心操作 ============ */
+  function armMine(r, c) {
+    if (armedMine && (armedMine.r !== r || armedMine.c !== c)) clearArmed();
+    armedMine = { r: r, c: c, until: Date.now() + ARM_WINDOW };
+    const el = cellEl(r, c);
+    if (el) {
+      el.classList.remove('shake');
+      void el.offsetWidth;            // 重启动画
+      el.classList.add('armed', 'shake');
+    }
+    faceEl.textContent = '😮';
+    showToast('⚠ 雷！1 秒内再点一次才会引爆', ARM_WINDOW);
+    if (armTimer) clearTimeout(armTimer);
+    armTimer = setTimeout(() => { armTimer = null; clearArmed(); }, ARM_WINDOW);
+  }
+
+  function clearArmed() {
+    if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+    if (!armedMine) return;
+    const el = cellEl(armedMine.r, armedMine.c);
+    if (el) el.classList.remove('armed', 'shake');
+    armedMine = null;
+    if (!over) faceEl.textContent = '🙂';
+    showToast('');
+  }
+
+  function revealCell(r, c) {
+    if (over) return;
+    const cell = grid[r][c];
+    if (cell.revealed || cell.flagged) return;
+
+    if (!started) {
+      started = true;
+      placeMines(r, c);
+      startTimer();
+    }
+
+    if (cell.mine) {
+      // 防误触：同一格在限定时间内连点两次才爆
+      if (armedMine && armedMine.r === r && armedMine.c === c && Date.now() <= armedMine.until) {
+        const el = cellEl(r, c);
+        if (el) el.classList.remove('armed', 'shake');
+        if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+        armedMine = null;
+        showToast('');
+        boom(r, c);
+      } else {
+        armMine(r, c);
+      }
+      return;
+    }
+
+    clearArmed();          // 点了别的格子，警戒解除
+    floodReveal(r, c);
+    checkWin();
+  }
+
+  function floodReveal(r, c) {
+    const stack = [[r, c]];
+    while (stack.length) {
+      const [cr, cc] = stack.pop();
+      const cell = grid[cr][cc];
+      if (cell.revealed || cell.flagged) continue;
+
+      cell.revealed = true;
+      cell.question = false;
+      revealedCount++;
+      renderCell(cr, cc);
+
+      if (cell.adj === 0) {
+        forNeighbors(cr, cc, (nr, nc) => {
+          const n = grid[nr][nc];
+          if (!n.revealed && !n.flagged) stack.push([nr, nc]);
+        });
+      }
+    }
+  }
+
+  function toggleFlag(r, c) {
+    if (over) return;
+    const cell = grid[r][c];
+    if (cell.revealed) return;
+    clearArmed();
+
+    if (cell.flagged) {
+      cell.flagged = false;
+      cell.question = true;
+      flagCount--;
+    } else if (cell.question) {
+      cell.question = false;
+    } else {
+      cell.flagged = true;
+      flagCount++;
+    }
+
+    updateMineCounter();
+    renderCell(r, c);
+  }
+
+  function chord(r, c) {
+    if (over) return;
+    const cell = grid[r][c];
+    if (!cell.revealed || cell.adj === 0) return;
+
+    let flags = 0;
+    forNeighbors(r, c, (nr, nc) => { if (grid[nr][nc].flagged) flags++; });
+    if (flags !== cell.adj) return;
+
+    forNeighbors(r, c, (nr, nc) => {
+      if (over || armedMine) return;
+      const n = grid[nr][nc];
+      if (!n.flagged && !n.revealed) revealCell(nr, nc);
+    });
+  }
+
+  /* ============ 结束判定 ============ */
+  function checkWin() {
+    if (revealedCount === rows * cols - totalMines) {
+      over = true;
+      stopTimer();
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = grid[r][c];
+          if (cell.mine && !cell.flagged) {
+            cell.flagged = true;
+            flagCount++;
+            renderCell(r, c);
+          }
+        }
+      }
+      updateMineCounter();
+      faceEl.textContent = '😎';
+    }
+  }
+
+  function boom(r, c) {
+    over = true;
+    stopTimer();
+    grid[r][c].exploded = true;
+
+    for (let r2 = 0; r2 < rows; r2++) {
+      for (let c2 = 0; c2 < cols; c2++) {
+        const cell = grid[r2][c2];
+        if (cell.mine && !cell.flagged) {
+          cell.revealed = true;
+        }
+        if (!cell.mine && cell.flagged) {
+          cell.wrongFlag = true;
+        }
+        renderCell(r2, c2);
+      }
+    }
+    faceEl.textContent = '😵';
+  }
+
+  /* ============ 鼠标 / 触摸输入 ============ */
+  boardEl.addEventListener('contextmenu', e => e.preventDefault());
+
+  boardEl.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.cell');
+    if (!el || over) return;
+    const r = +el.dataset.r;
+    const c = +el.dataset.c;
+
+    /* --- 触摸 --- */
+    if (e.pointerType === 'touch') {
+      touchInfo = { r, c, fired: false, el };
+      el.classList.add('pressed');
+      touchTimer = setTimeout(() => {
+        if (touchInfo && !over) {
+          touchInfo.fired = true;
+          touchInfo.el.classList.remove('pressed');
+          toggleFlag(touchInfo.r, touchInfo.c);
+        }
+      }, 400);
+      return;
+    }
+
+    /* --- 中键 或 左右键同按 → Chording 快速展开 --- */
+    if (e.button === 1 || e.buttons === 3) {
+      e.preventDefault();
+      pendingLeft = null;
+      chordFired = true;
+      clearPressed();
+      clearChordPreview();
+      chord(r, c);
+      return;
+    }
+
+    if (e.button === 0) {
+      clearPressed();
+      clearChordPreview();
+      chordFired = false;
+      pendingLeft = { r, c };
+      pressEl = el;
+      el.classList.add('pressed');
+      // 数字格按住先预览邻居，配合右键一起按就是 Chording
+      previewChord(r, c);
+    } else if (e.button === 2) {
+      e.preventDefault();
+      // 左键还按着（有些浏览器 buttons 不给 3）→ 按 Chording 处理
+      if (pendingLeft) {
+        const pr = pendingLeft.r, pc = pendingLeft.c;
+        pendingLeft = null;
+        chordFired = true;
+        clearPressed();
+        clearChordPreview();
+        chord(pr, pc);
+      } else {
+        toggleFlag(r, c);
+      }
+    }
+  });
+
+  document.addEventListener('pointerup', (e) => {
+    /* --- 触摸松开 --- */
+    if (e.pointerType === 'touch') {
+      if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+      if (!touchInfo) return;
+      const info = touchInfo;
+      touchInfo = null;
+      info.el.classList.remove('pressed');
+      if (!info.fired && !over) {
+        const cell = grid[info.r][info.c];
+        if (cell.revealed) chord(info.r, info.c);
+        else revealCell(info.r, info.c);
+      }
+      return;
+    }
+
+    /* --- 鼠标 --- */
+    clearChordPreview();
+    if (chordFired) {
+      chordFired = false;
+      pendingLeft = null;
+      clearPressed();
+      return;
+    }
+
+    if (e.button === 0 && pendingLeft) {
+      const { r, c } = pendingLeft;
+      pendingLeft = null;
+      clearPressed();
+      if (over) return;
+
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const el = target && target.closest ? target.closest('.cell') : null;
+      if (el && +el.dataset.r === r && +el.dataset.c === c) {
+        const cell = grid[r][c];
+        if (cell.revealed) chord(r, c);
+        else revealCell(r, c);
+      }
+    }
+  });
+
+  document.addEventListener('pointercancel', () => {
+    if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+    if (touchInfo) {
+      touchInfo.el.classList.remove('pressed');
+      touchInfo = null;
+    }
+    clearPressed();
+    clearChordPreview();
+    chordFired = false;
+    pendingLeft = null;
+  });
+
+  /* ============ 按钮事件 ============ */
+  faceEl.addEventListener('click', () => newGame());
+
+  menuBtns.forEach(btn => {
+    btn.addEventListener('click', () => newGame(btn.dataset.level));
+  });
+
+  customStart.addEventListener('click', () => newGame('custom'));
+  [cRows, cCols, cMines].forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') newGame('custom');
+    });
+  });
+
+  /* ============ 窗口自适应 ============ */
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!rows || !cols) return;
+      applyCellSize();
+    }, 120);
+  });
+
+  /* ============ 启动 ============ */
+  newGame('beginner');
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>贪吃蛇</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #121212; color: #eee;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 2px; }
+  #hud { font-size: 14px; color: #aaa; height: 20px; }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    width: min(90vw, 420px);
+    aspect-ratio: 1;
+    background: #000;
+    gap: 1px;
+    padding: 1px;
+    border-radius: 8px;
+  }
+  #game div { background: #1e1e1e; border-radius: 2px; }
+  #game .snake { background: #4caf50; }
+  #game .head { background: #8bc34a; }
+  #game .food { background: #f44336; }
+  .row { display: flex; gap: 8px; }
+  button {
+    padding: 9px 16px; border: 1px solid #444; border-radius: 8px;
+    background: #242424; color: #eee; font-size: 14px; cursor: pointer;
+  }
+  button:active { background: #333; }
+  .dpad { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; }
+  .dpad button { width: 56px; height: 48px; padding: 0; }
+  .dpad .empty { visibility: hidden; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>贪吃蛇</h1>
+  <div id="hud">分数：<span id="score">0</span> · <span id="msg">方向键 / WASD</span></div>
+  <div id="game"></div>
+  <div class="dpad">
+    <button class="empty"></button>
+    <button data-dir="up">↑</button>
+    <button class="empty"></button>
+    <button data-dir="left">←</button>
+    <button data-dir="down">↓</button>
+    <button data-dir="right">→</button>
+  </div>
+  <div class="row">
+    <button id="pause">暂停 / 继续</button>
+    <button id="restart">重新开始</button>
+  </div>
+</div>
+
+<script>
+const SIZE = 20;
+const KEY = 'snake-dom-v1';
+const gameEl = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+const msgEl = document.getElementById('msg');
+
+const cells = [];
+for (let i = 0; i < SIZE * SIZE; i++) {
+  const d = document.createElement('div');
+  gameEl.appendChild(d);
+  cells.push(d);
+}
+
+const DIRS = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 }
+};
+
+let state;
+let timer = null;
+
+function randomFood(snake) {
+  const free = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (!snake.some(p => p.x === x && p.y === y)) free.push({ x, y });
+    }
+  }
+  if (!free.length) return null;
+  return free[Math.floor(Math.random() * free.length)];
+}
+
+function initState() {
+  const snake = [
+    { x: 10, y: 10 },
+    { x: 9, y: 10 },
+    { x: 8, y: 10 }
+  ];
+  return {
+    snake,
+    dir: 'right',
+    nextDir: 'right',
+    food: randomFood(snake),
+    score: 0,
+    over: false,
+    paused: false
+  };
+}
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (
+      s && Array.isArray(s.snake) && s.snake.length &&
+      s.food && typeof s.score === 'number'
+    ) {
+      state = {
+        snake: s.snake,
+        dir: DIRS[s.dir] ? s.dir : 'right',
+        nextDir: DIRS[s.nextDir] ? s.nextDir : 'right',
+        food: s.food,
+        score: s.score,
+        over: !!s.over,
+        paused: !!s.paused
+      };
+      return;
+    }
+  } catch (e) {}
+  state = initState();
+}
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+
+function render() {
+  cells.forEach(c => { c.className = ''; });
+
+  state.snake.forEach((p, i) => {
+    const idx = p.y * SIZE + p.x;
+    if (cells[idx]) cells[idx].className = i === 0 ? 'head' : 'snake';
+  });
+
+  if (state.food) {
+    const idx = state.food.y * SIZE + state.food.x;
+    if (cells[idx]) cells[idx].className = 'food';
+  }
+
+  scoreEl.textContent = state.score;
+  if (state.over) msgEl.textContent = '游戏结束，按 R 重开';
+  else if (state.paused) msgEl.textContent = '已暂停';
+  else msgEl.textContent = '方向键 / WASD';
+}
+
+function setDir(dir) {
+  if (state.over || state.paused) return;
+  const opposite = {
+    up: 'down', down: 'up', left: 'right', right: 'left'
+  };
+  if (opposite[dir] === state.dir) return;
+  state.nextDir = dir;
+}
+
+function tick() {
+  if (state.over || state.paused) return;
+
+  state.dir = state.nextDir;
+  const d = DIRS[state.dir];
+  const head = {
+    x: state.snake[0].x + d.x,
+    y: state.snake[0].y + d.y
+  };
+
+  const hitWall =
+    head.x < 0 || head.x >= SIZE || head.y < 0 || head.y >= SIZE;
+  const hitSelf = state.snake.some(p => p.x === head.x && p.y === head.y);
+
+  if (hitWall || hitSelf) {
+    state.over = true;
+    save();
+    render();
+    return;
+  }
+
+  const ate = state.food && head.x === state.food.x && head.y === state.food.y;
+  state.snake.unshift(head);
+
+  if (ate) {
+    state.score++;
+    state.food = randomFood(state.snake);
+    if (!state.food) state.over = true;
+  } else {
+    state.snake.pop();
+  }
+
+  save();
+  render();
+}
+
+function restart() {
+  state = initState();
+  save();
+  render();
+}
+
+function togglePause() {
+  if (state.over) return;
+  state.paused = !state.paused;
+  save();
+  render();
+}
+
+const KEYMAP = {
+  ArrowUp: 'up', w: 'up', W: 'up',
+  ArrowDown: 'down', s: 'down', S: 'down',
+  ArrowLeft: 'left', a: 'left', A: 'left',
+  ArrowRight: 'right', d: 'right', D: 'right'
+};
+
+window.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    togglePause();
+    return;
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    restart();
+    return;
+  }
+  const dir = KEYMAP[e.key];
+  if (dir) {
+    e.preventDefault();
+    setDir(dir);
+  }
+});
+
+document.querySelectorAll('[data-dir]').forEach(btn => {
+  btn.addEventListener('click', () => setDir(btn.dataset.dir));
+});
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('restart').addEventListener('click', restart);
+
+load();
+render();
+timer = setInterval(tick, 130);
+</script>
+</body>
+</html>
