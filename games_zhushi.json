@@ -1,0 +1,33 @@
+{
+  // ======== 【根目录】首页显示的游戏列表 ========
+  "root": [
+    // type: "dir" 表示这是一个文件夹，点击会进入下一级（对应下面 puzzle、action 的数据）
+    { "name": "益智游戏合集", "url": "?path=puzzle", "icon": "📁", "type": "dir" },
+    { "name": "动作游戏合集", "url": "?path=action", "icon": "📁", "type": "dir" },
+    
+    // type: "file" 表示这是具体的网页文件。url 直接填文件名。
+    { "name": "2048", "url": "2048.html", "icon": "🔢", "type": "file" },
+    { "name": "数独", "url": "sudoku.html", "icon": "🔢", "type": "file" },
+    { "name": "贪吃蛇", "url": "贪吃蛇.html", "icon": "🐍", "type": "file" },
+    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "🧩", "type": "file" },
+    { "name": "魔方", "url": "魔方.html", "icon": "🧩", "type": "file" },
+    { "name": "魔方 (2)", "url": "魔方 (2).html", "icon": "🧩", "type": "file" },
+    { "name": "扫雷", "url": "扫雷.html", "icon": "💣", "type": "file" }
+
+    // 💡 如果你想在首页加新游戏，在上一行（扫雷）后面加个英文逗号，换行写：
+    // { "name": "新游戏", "url": "新游戏.html", "icon": "🎮", "type": "file" }
+  ],
+
+  // ======== 【益智游戏文件夹】里面的列表 ========
+  // 当点击上面 "url": "?path=puzzle" 时，就会读取这里的列表
+  "puzzle": [
+    { "name": "魔方", "url": "puzzle/魔方.html", "icon": "🧩", "type": "file" },
+    { "name": "魔方 (2)", "url": "puzzle/魔方 (2).html", "icon": "🧩", "type": "file" },
+    { "name": "扫雷", "url": "puzzle/扫雷.html", "icon": "💣", "type": "file" }
+  ],
+
+  // ======== 【动作游戏文件夹】里面的列表 ========
+  "action": [
+    { "name": "拳皇", "url": "action/kof.html", "icon": "🥊", "type": "file" }
+  ]
+}
