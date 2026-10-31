@@ -1,0 +1,1153 @@
+<!DOCTYPE html
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>魔方 · 离线 3D 镜面版 · 公式图册</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  #probe { position: absolute; left: 0; top: 0; width: var(--s); height: 0; visibility: hidden; pointer-events: none; }
+  /* --s 随视口变化：魔方本体、镜面、文字间距全部按它缩放 */
+  :root { --s: clamp(28px, min(12.5vmin, 10vw), 56px); }
+  body {
+    margin: 0; height: 100vh; height: 100dvh;
+    padding: 16px 12px 20px;
+    background: radial-gradient(120% 90% at 50% 0%, #1e293b 0%, #0b1120 55%, #060a12 100%);
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    overflow: hidden;
+  }
+  .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; position: relative; z-index: 99; pointer-events: none; }
+  h1 { margin: 0; font-size: 20px; letter-spacing: 6px; font-weight: 700; }
+  .badge { font-size: 11px; color: #93c5fd; background: rgba(59,130,246,.16); border: 1px solid rgba(59,130,246,.35); padding: 2px 8px; border-radius: 999px; }
+  .hud { display: flex; gap: 18px; font-size: 12px; color: #94a3b8; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 99; pointer-events: none; }
+  .hud b { color: #e2e8f0; font-size: 14px; margin-left: 4px; }
+  .hud .ok { color: #34d399; }
+  #layerMode.mid { color: #fbbf24; }
+
+  .stage { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; perspective: 2200px; touch-action: none; cursor: grab; user-select: none; margin: 10px 0; }
+  .stage.dragging { cursor: grabbing; }
+  .cube, .mirrors { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+  .mirrors { pointer-events: none; }
+  .cubie { position: absolute; left: calc(var(--s) * -0.5); top: calc(var(--s) * -0.5); width: var(--s); height: var(--s); transform-style: preserve-3d; transform-origin: 50% 50%; will-change: transform; }
+  .cubie .body { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .face { position: absolute; inset: 3%; border-radius: 14%; background: #0b0e14; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); }
+  .face.front  { transform: translateZ(calc(var(--s) * 0.5)); }
+  .face.back   { transform: rotateY(180deg) translateZ(calc(var(--s) * 0.5)); }
+  .face.right  { transform: rotateY(90deg)  translateZ(calc(var(--s) * 0.5)); }
+  .face.left   { transform: rotateY(-90deg) translateZ(calc(var(--s) * 0.5)); }
+  .face.up     { transform: rotateX(90deg)  translateZ(calc(var(--s) * 0.5)); }
+  .face.down   { transform: rotateX(-90deg) translateZ(calc(var(--s) * 0.5)); }
+  .face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(150deg, rgba(255,255,255,.28), rgba(255,255,255,0) 55%, rgba(0,0,0,.18)); pointer-events: none; }
+
+  .mirror { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * 3.4); height: calc(var(--s) * 3.4); margin-left: calc(var(--s) * -1.7); margin-top: calc(var(--s) * -1.7); padding: calc(var(--s) * 0.08); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: calc(var(--s) * 0.08); border-radius: calc(var(--s) * 0.3); background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(96, 165, 250, 0.35); box-shadow: 0 0 35px rgba(59, 130, 246, 0.2), inset 0 0 25px rgba(59, 130, 246, 0.15); transform-style: preserve-3d; backface-visibility: visible; opacity: 0; transition: opacity 0.3s ease; }
+  .mirror.show { opacity: 1; }
+  .mirror::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,.05) 60%, rgba(255,255,255,0) 100%); pointer-events: none; }
+  .mirror i { display: block; border-radius: calc(var(--s) * 0.15); background: #0b0e14; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); transition: background 0.2s ease; opacity: 0.95; }
+  #mirror-nx { transform: translate3d(calc(var(--s) * -5.7), 0, 0) rotateY(90deg); }
+  #mirror-px { transform: translate3d(calc(var(--s) * 5.7), 0, 0) rotateY(-90deg); }
+  #mirror-py { transform: translate3d(0, calc(var(--s) * -5.7), 0) rotateX(-90deg); }
+  #mirror-ny { transform: translate3d(0, calc(var(--s) * 5.7), 0) rotateX(90deg); }
+  #mirror-pz { transform: translate3d(0, 0, calc(var(--s) * 5.7)) rotateY(0deg); }
+  #mirror-nz { transform: translate3d(0, 0, calc(var(--s) * -5.7)) rotateY(180deg); }
+
+  .controls { width: 100%; max-width: 460px; margin-top: auto; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 10; padding-bottom: 10px; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .row.hidden { display: none; }
+  button { font: inherit; font-size: 14px; color: #e2e8f0; background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.28); border-radius: 10px; padding: 8px 14px; cursor: pointer; transition: .14s; min-width: 52px; }
+  button:hover { background: rgba(148,163,184,.22); border-color: rgba(148,163,184,.5); }
+  button:active { transform: scale(.96); }
+  button.move { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 1px; min-width: 62px; padding: 8px 10px; }
+  button.move s { color: #7b8794; text-decoration-thickness: 1.5px; margin-right: 5px; font-weight: 400; }
+  button.move b { font-weight: 700; color: #f1f5f9; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; }
+  button.primary:hover { background: #1d4ed8; }
+  button:disabled { opacity: .45; cursor: default; transform: none; }
+
+  .learn { display: none; flex-direction: column; gap: 8px; background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 12px; padding: 10px 12px; }
+  .learn.show { display: flex; }
+  .learn-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+  .learn-badge { color: #93c5fd; background: rgba(59,130,246,.18); border: 1px solid rgba(59,130,246,.4); padding: 1px 8px; border-radius: 999px; font-size: 11px; }
+  .learn-main { text-align: center; font-size: 15px; color: #e2e8f0; letter-spacing: 1px; min-height: 28px; line-height: 28px; }
+  .learn-main .mv { display: inline-block; min-width: 48px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; color: #fff; background: #2563eb; border-radius: 8px; padding: 0 10px; margin-left: 8px; box-shadow: 0 0 18px rgba(37,99,235,.55); animation: mvPulse 1.4s ease-in-out infinite; }
+  @keyframes mvPulse { 0%, 100% { box-shadow: 0 0 14px rgba(37,99,235,.45); } 50% { box-shadow: 0 0 26px rgba(59,130,246,.9); } }
+  .learn-main .done { color: #34d399; font-weight: 600; }
+  .learn-progress { height: 4px; border-radius: 2px; background: rgba(148,163,184,.15); overflow: hidden; }
+  .learn-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2563eb, #60a5fa); transition: width .3s ease; }
+
+
+  /* ---------- 复位菜单 ---------- */
+  .reset-wrap { position: relative; display: inline-flex; }
+  .reset-menu {
+    position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+    display: none; flex-direction: column; gap: 6px; padding: 8px;
+    background: #131a2a; border: 1px solid rgba(96,165,250,.42); border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.55); z-index: 60; white-space: nowrap;
+  }
+  .reset-menu.show { display: flex; }
+  .reset-menu button { min-width: 116px; text-align: left; }
+
+  /* ---------- 公式图册 ---------- */
+  .gallery {
+    display: none; flex-direction: column; gap: 8px; min-height: 0;
+    background: rgba(37,99,235,.08); border: 1px solid rgba(96,165,250,.3);
+    border-radius: 12px; padding: 10px 12px; max-height: 44vh;
+  }
+  .gallery.show { display: flex; }
+  .gal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #94a3b8; flex: none; }
+  .gal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 14px; padding-right: 2px; }
+  .gal-note { font-size: 11px; color: #64748b; line-height: 1.6; flex: none; }
+  .gal-sec h3 { margin: 0 0 8px; font-size: 13px; color: #93c5fd; font-weight: 600; letter-spacing: .5px; }
+  .gal-sec h3 s { color: #64748b; margin-left: 6px; text-decoration: none; font-weight: 400; font-size: 11px; }
+  .cases { display: flex; flex-wrap: wrap; gap: 8px; }
+  .case {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(148,163,184,.07); border: 1px solid rgba(148,163,184,.18);
+    border-radius: 10px; padding: 8px 10px;
+  }
+  .dg { display: grid; grid-template-columns: auto auto; gap: 5px 6px; flex: none; }
+  .dg.single { grid-template-columns: auto; }
+  .dg .u { grid-column: 2; grid-row: 1; }
+  .dg .f { grid-column: 1; grid-row: 2; }
+  .dg .r { grid-column: 2; grid-row: 2; }
+  .dg.single .u { grid-column: 1; grid-row: 1; }
+  .dg .lbl { font-size: 9px; color: #64748b; text-align: center; line-height: 1; margin-bottom: 3px; }
+  .g1 { display: grid; grid-template-columns: repeat(3, 9px); grid-template-rows: repeat(3, 9px); gap: 2px; }
+  .g1 i { border-radius: 2px; background: #1a2130; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); }
+  .ci { min-width: 0; }
+  .cn { font-size: 12px; color: #e2e8f0; margin-bottom: 3px; }
+  .ca { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #93c5fd; letter-spacing: .4px; line-height: 1.5; max-width: 190px; word-break: break-word; }
+  .ch { font-size: 11px; color: #64748b; margin-top: 4px; max-width: 160px; line-height: 1.45; }
+  .gal-x { background: none; border: none; color: #94a3b8; font-size: 17px; cursor: pointer; padding: 0 4px; min-width: 0; line-height: 1; }
+  .gal-x:hover { color: #e2e8f0; background: none; }
+
+  .tip { margin: 12px 0 0; font-size: 12px; color: #64748b; text-align: center; line-height: 1.8; position: relative; z-index: 10; }
+  .tip kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; background: rgba(148,163,184,.14); border: 1px solid rgba(148,163,184,.28); border-radius: 5px; padding: 1px 5px; }
+
+  /* ================= 自适应：电脑网页版 / 手机网页版 ================= */
+  /* 手机：底部安全区 */
+  body { padding-bottom: max(20px, calc(16px + env(safe-area-inset-bottom))); }
+
+  /* 窄屏：图册卡片更紧凑 */
+  @media (max-width: 430px) {
+    .controls { max-width: none; }
+    .case { padding: 6px 8px; gap: 8px; }
+    .g1 { grid-template-columns: repeat(3, 8px); grid-template-rows: repeat(3, 8px); }
+    .ca { font-size: 11px; max-width: 148px; }
+    .ch { font-size: 10px; max-width: 138px; }
+    .cn { font-size: 11px; }
+    .gal-note { font-size: 10px; }
+  }
+
+  /* 矮屏（手机横屏）：压缩非核心元素 */
+  @media (max-height: 620px) {
+    body { padding: 8px 10px max(8px, calc(4px + env(safe-area-inset-bottom))); }
+    h1 { font-size: 16px; letter-spacing: 4px; }
+    .head { margin-bottom: 0; }
+    .hud { margin-bottom: 2px; font-size: 11px; }
+    .hud b { font-size: 12px; }
+    .stage { margin: 4px 0; }
+    .controls { gap: 6px; padding-bottom: 2px; }
+    button { padding: 6px 11px; font-size: 13px; }
+    button.move { min-width: 54px; padding: 6px 8px; font-size: 12px; }
+    .tip { display: none; }
+    .gallery { max-height: 54vh; padding: 8px 10px; }
+    .learn { padding: 8px 10px; }
+    .learn-main { min-height: 22px; line-height: 22px; font-size: 14px; }
+    .learn-main .mv { font-size: 15px; min-width: 42px; }
+  }
+
+  /* 宽屏（电脑）：左 3D、右控制栏 */
+  @media (min-width: 900px) {
+    :root { --s: clamp(46px, 9vmin, 84px); }
+    body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "head  controls"
+        "hud   controls"
+        "stage controls"
+        "tip   controls";
+      align-items: center;
+      justify-items: center;
+      column-gap: 36px;
+      padding: 24px 32px;
+      overflow: hidden;
+    }
+    .head { grid-area: head; justify-self: center; margin-top: 6px; }
+    .hud { grid-area: hud; justify-self: center; margin-bottom: 0; }
+    .stage { grid-area: stage; width: 100%; height: 100%; margin: 0; }
+    .tip { grid-area: tip; margin: 10px 0 0; max-width: 560px; }
+    .controls {
+      grid-area: controls; width: 100%; max-width: none;
+      margin: 0; align-self: stretch; justify-content: center;
+      gap: 12px; padding: 8px 0;
+    }
+    .controls button { padding: 10px 16px; }
+    .gallery { flex: 1 1 auto; min-height: min(260px, 45vh); max-height: 66vh; }
+    .gal-body { gap: 16px; }
+    .case { padding: 10px 12px; }
+    .g1 { grid-template-columns: repeat(3, 10px); grid-template-rows: repeat(3, 10px); }
+    .ca { max-width: 220px; }
+    .ch { max-width: 220px; }
+    .stage { cursor: grab; }
+  }
+</style>
+</head>
+<body>
+<div id="probe" aria-hidden="true"></div>
+
+  <div class="head">
+    <h1>魔方</h1>
+    <span class="badge">离线 3D · v10 · 公式图册</span>
+  </div>
+
+  <div class="hud">
+    <span>步数<b id="moveCount">0</b></span>
+    <span>状态<b id="stateText">已还原</b></span>
+    <span>层<b id="layerMode">外层</b></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="mirrors" id="mirrors">
+      <div class="mirror" id="mirror-nx"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-py"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-ny"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-pz"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-nz"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="cube" id="cube"></div>
+  </div>
+
+  <div class="controls">
+    <div class="learn" id="slowPanel">
+      <div class="learn-top">
+        <span class="learn-badge">慢放复位</span>
+        <span id="slowCount">—</span>
+      </div>
+      <div class="learn-main" id="slowHint">—</div>
+      <div class="row">
+        <button class="primary" id="slowNextBtn">下一步</button>
+        <button id="slowAutoBtn">自动播放</button>
+        <button id="slowExitBtn">退出</button>
+      </div>
+    </div>
+    <div class="gallery" id="galleryPanel">
+      <div class="gal-head">
+        <span class="learn-badge">公式图册</span>
+        <button class="gal-x" id="galClose">×</button>
+      </div>
+      <div class="gal-note">黄底白顶 · 白色朝上。X = 该面顺时针 90°，X' = 逆时针，X2 = 180°；图中灰格为无关色块，<b>只看形态，不用管魔方现在的状态</b>。</div>
+      <div class="gal-body" id="galBody"></div>
+    </div>
+    <div class="row" id="moveRow"></div>
+    <div class="row">
+      <button class="primary" id="scrambleBtn">打乱</button>
+      <button id="undoBtn">撤销</button>
+      <span class="reset-wrap">
+        <button id="resetBtn">复位 ▾</button>
+        <div class="reset-menu" id="resetMenu">
+          <button id="resetInstant">瞬间复位</button>
+          <button id="resetSlow">慢放复位</button>
+        </div>
+      </span>
+      <button id="viewBtn">视角</button>
+      <button id="learnBtn">学习</button>
+      <button id="schemeBtn" title="切换键盘方案">键盘 ②</button>
+    </div>
+  </div>
+
+  <p class="tip">
+    在魔方表面滑过相邻的两个色块 → 那一层朝滑动方向转 90°（右键拖动仍是转视角） · 拖动空白处旋转视角 · 滚轮缩放 · 双击复位<br>
+    <span id="keyTip"></span>
+  </p>
+
+<script>
+(function () {
+  'use strict';
+
+  const S = 'var(--s)';
+  const INNER = '#0b0e14';
+
+  const FACES = [
+    { key: 'px', cls: 'right', v: [ 1, 0, 0] },
+    { key: 'nx', cls: 'left',  v: [-1, 0, 0] },
+    { key: 'py', cls: 'up',    v: [ 0, 1, 0] },
+    { key: 'ny', cls: 'down',  v: [ 0,-1, 0] },
+    { key: 'pz', cls: 'front', v: [ 0, 0, 1] },
+    { key: 'nz', cls: 'back',  v: [ 0, 0,-1] }
+  ];
+
+  const COLORS = {
+    px: '#ef4444', nx: '#A600C7', py: '#f8fafc', ny: '#facc15', pz: '#22c55e', nz: '#3b82f6'
+  };
+
+  const cubeEl = document.getElementById('cube');
+  const stageEl = document.getElementById('stage');
+  const mirrorsEl = document.getElementById('mirrors');
+  const moveCountEl = document.getElementById('moveCount');
+  const stateTextEl = document.getElementById('stateText');
+  const layerModeEl = document.getElementById('layerMode');
+  const moveRow = document.getElementById('moveRow');
+  const schemeBtn = document.getElementById('schemeBtn');
+  const keyTip = document.getElementById('keyTip');
+
+  const slowPanel = document.getElementById('slowPanel');
+  const slowCountEl = document.getElementById('slowCount');
+  const slowHintEl = document.getElementById('slowHint');
+  const slowNextBtn = document.getElementById('slowNextBtn');
+  const slowAutoBtn = document.getElementById('slowAutoBtn');
+  const slowExitBtn = document.getElementById('slowExitBtn');
+  const galleryPanel = document.getElementById('galleryPanel');
+  const galBody = document.getElementById('galBody');
+  const galClose = document.getElementById('galClose');
+  const resetMenu = document.getElementById('resetMenu');
+  const learnBtn = document.getElementById('learnBtn');
+
+  let cubies = [];
+  let moves = 0;
+  const HOME_X = -24, HOME_Y = -34;
+  let viewX = HOME_X, viewY = HOME_Y;
+  let zoom = 1;
+
+  /* ================= 基础工具 ================= */
+  function rotMatrix(axis, deg) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    if (axis === 'x') return [[1, 0, 0], [0, c, -s], [0, s, c]];
+    if (axis === 'y') return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
+    return [[c, -s, 0], [s, c, 0], [0, 0, 1]];
+  }
+  function applyMatrix(M, v) {
+    return [
+      M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2],
+      M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2],
+      M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2]
+    ].map(n => Math.round(n));
+  }
+  function vecKey(v) {
+    for (const f of FACES) if (f.v[0] === v[0] && f.v[1] === v[1] && f.v[2] === v[2]) return f.key;
+    return null;
+  }
+  function translateOf(pos) {
+    return 'translate3d(calc(' + S + ' * ' + pos[0] + '), calc(' + S + ' * ' + (-pos[1]) + '), calc(' + S + ' * ' + pos[2] + '))';
+  }
+
+  function buildCubie(x, y, z) {
+    const el = document.createElement('div');
+    el.className = 'cubie';
+    const body = document.createElement('div');
+    body.className = 'body';
+    const faces = {};
+    const colors = {};
+    for (const f of FACES) {
+      const d = document.createElement('div');
+      d.className = 'face ' + f.cls;
+      const onSurface =
+        (f.v[0] === 1 && x === 1) || (f.v[0] === -1 && x === -1) ||
+        (f.v[1] === 1 && y === 1) || (f.v[1] === -1 && y === -1) ||
+        (f.v[2] === 1 && z === 1) || (f.v[2] === -1 && z === -1);
+      colors[f.key] = onSurface ? COLORS[f.key] : null;
+      body.appendChild(d);
+      faces[f.key] = d;
+    }
+    el.appendChild(body);
+    const cubie = { pos: [x, y, z], colors: colors, faces: faces, el: el, body: body };
+    el.__cubie = cubie;
+    paint(cubie);
+    body.style.transform = translateOf(cubie.pos);
+    return cubie;
+  }
+  function paint(cubie) {
+    for (const f of FACES) cubie.faces[f.key].style.background = cubie.colors[f.key] || INNER;
+  }
+  function buildCube() {
+    cubeEl.innerHTML = '';
+    cubies = [];
+    for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) {
+      if (x === 0 && y === 0 && z === 0) continue;
+      const c = buildCubie(x, y, z);
+      cubies.push(c);
+      cubeEl.appendChild(c.el);
+    }
+    applyView();
+    refreshMirrors();
+  }
+
+  const MOVE_DEF = {
+    U: { axis: 'y', layer: 1, angle: -90 },
+    D: { axis: 'y', layer: -1, angle: 90 },
+    R: { axis: 'x', layer: 1, angle: -90 },
+    L: { axis: 'x', layer: -1, angle: 90 },
+    F: { axis: 'z', layer: 1, angle: -90 },
+    B: { axis: 'z', layer: -1, angle: 90 }
+  };
+  const MID_DEF = {
+    M: { axis: 'x', layer: 0, angle: 90 },
+    E: { axis: 'y', layer: 0, angle: 90 },
+    S: { axis: 'z', layer: 0, angle: -90 }
+  };
+  const AXIS_INDEX = { x: 0, y: 1, z: 2 };
+
+  /* ★ 先定义 MID_BASE，避免 TDZ */
+  const MID_BASE = { x: 90, y: 90, z: -90 };
+
+  function parseMoveData(name) {
+    const face = name[0].toUpperCase();
+    const isPrime = name.length > 1 && (name[1] === "'" || name[1] === '’');
+    const isDouble = name.length > 1 && name[1] === '2';
+    const def = MOVE_DEF[face] || MID_DEF[face];
+    if (!def) return null;
+    let angle = def.angle;
+    if (isPrime) angle = -angle;
+    if (isDouble) angle = angle * 2;
+    return { axis: def.axis, layer: def.layer, angle: angle };
+  }
+  function parseMove(name) { return parseMoveData(name) || { axis: 'x', layer: 1, angle: 0 }; }
+
+  function opLabel(op) {
+    if (op.layer === 0) {
+      const mid = { x: 'M', y: 'E', z: 'S' }[op.axis];
+      const base = MID_BASE[op.axis];
+      if (op.angle === base) return mid;
+      if (op.angle === -base) return mid + "'";
+      if (op.angle === base * 2 || op.angle === -base * 2) return mid + '2';
+      return mid;
+    }
+    const map = {
+      x: { '1': ['R', -90], '-1': ['L', 90] },
+      y: { '1': ['U', -90], '-1': ['D', 90] },
+      z: { '1': ['F', -90], '-1': ['B', 90] }
+    };
+    const m = map[op.axis] && map[op.axis][String(op.layer)];
+    if (!m) return '?';
+    if (op.angle === m[1]) return m[0];
+    if (op.angle === -m[1]) return m[0] + "'";
+    if (op.angle === m[1] * 2 || op.angle === -m[1] * 2) return m[0] + '2';
+    return m[0];
+  }
+
+  /* ================= 还原状态判断 ================= */
+  function isSolvedNow() {
+    for (const f of FACES) {
+      const i = AXIS_INDEX[f.v[0] ? 'x' : f.v[1] ? 'y' : 'z'];
+      const layer = f.v[i];
+      let color = null;
+      for (const c of cubies) {
+        if (c.pos[i] !== layer) continue;
+        const col = c.colors[f.key];
+        if (!col) continue;
+        if (color === null) color = col;
+        else if (col !== color) return false;
+      }
+    }
+    return true;
+  }
+
+  /* ================= 还原栈：自上次还原以来做过的所有转动 ================= */
+  let opStack = [];
+
+  /* ================= 慢放复位 ================= */
+  let slowMode = false;
+  let slowAuto = false;
+  let slowTimer = 0;
+
+  function nextUndoOp() {
+    if (!opStack.length) return null;
+    const op = opStack[opStack.length - 1];
+    return { axis: op.axis, layer: op.layer, angle: -op.angle };
+  }
+
+  function refreshSlow() {
+    if (!slowMode) return;
+    const n = opStack.length;
+    if (n === 0) {
+      slowCountEl.textContent = '已完成';
+      slowHintEl.innerHTML = '<span class="done">🎉 魔方已还原</span>';
+      slowNextBtn.disabled = true;
+      slowAutoBtn.disabled = true;
+      stopSlowAuto();
+      return;
+    }
+    slowCountEl.textContent = '剩余 ' + n + ' 步';
+    slowHintEl.innerHTML = '下一步：<b class="mv">' + opLabel(nextUndoOp()) + '</b>';
+    slowNextBtn.disabled = busy;
+    slowAutoBtn.disabled = false;
+  }
+
+  function doSlowStep() {
+    if (!slowMode || busy) return;
+    const step = nextUndoOp();
+    if (!step) return;
+    pushTurn(step.axis, step.layer, step.angle, { learnStep: true, ms: 340 });
+  }
+
+  function startSlowAuto() {
+    if (!slowMode || slowAuto) return;
+    slowAuto = true;
+    slowAutoBtn.textContent = '暂停';
+    clearInterval(slowTimer);
+    slowTimer = setInterval(function () {
+      if (!slowMode || !slowAuto) return;
+      if (busy) return;
+      if (!opStack.length) { stopSlowAuto(); refreshSlow(); return; }
+      doSlowStep();
+    }, 560);
+  }
+
+  function stopSlowAuto() {
+    slowAuto = false;
+    clearInterval(slowTimer);
+    slowTimer = 0;
+    if (slowAutoBtn) slowAutoBtn.textContent = '自动播放';
+  }
+
+  function enterSlow() {
+    closeGallery();
+    slowMode = true;
+    stopSlowAuto();
+    resetMenu.classList.remove('show');
+    moveRow.classList.add('hidden');
+    slowPanel.classList.add('show');
+    refreshSlow();
+  }
+
+  function exitSlow() {
+    stopSlowAuto();
+    slowMode = false;
+    slowPanel.classList.remove('show');
+    moveRow.classList.remove('hidden');
+  }
+
+  slowNextBtn.addEventListener('click', doSlowStep);
+  slowAutoBtn.addEventListener('click', function () { slowAuto ? stopSlowAuto() : startSlowAuto(); });
+  slowExitBtn.addEventListener('click', exitSlow);
+
+  /* ================= 复位菜单 ================= */
+  const resetBtnEl = document.getElementById('resetBtn');
+  resetBtnEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    resetMenu.classList.toggle('show');
+  });
+  resetMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+  document.addEventListener('click', function () { resetMenu.classList.remove('show'); });
+  document.getElementById('resetInstant').addEventListener('click', function () {
+    resetMenu.classList.remove('show');
+    reset();
+  });
+  document.getElementById('resetSlow').addEventListener('click', function () {
+    resetMenu.classList.remove('show');
+    enterSlow();
+  });
+
+  /* ================= 公式图册 ================= */
+  const GALLERY = [{"step":2,"name":"黄色朝右","alg":"R U R'","hint":"把角块转到目标槽（右下前）正上方，黄色贴在右面","d":{"py":[[null,null,"R"],[null,"W",null],[null,null,null]],"pz":[[null,null,"G"],[null,"G",null],[null,null,null]],"px":[[null,null,"Y"],[null,"R",null],[null,null,null]]},"faces":["py","pz","px"]},{"step":2,"name":"黄色朝上","alg":"R U2 R' U' R U R'","hint":"黄色朝上是最麻烦的一种，用这条一次到位","d":{"py":[[null,null,"Y"],[null,"W",null],[null,null,null]],"pz":[[null,null,"R"],[null,"G",null],[null,null,null]],"px":[[null,null,"G"],[null,"R",null],[null,null,null]]},"faces":["py","pz","px"]},{"step":2,"name":"黄色朝前","alg":"F' U' F","hint":"黄色贴在前面的情况","d":{"py":[[null,null,"G"],[null,"W",null],[null,null,null]],"pz":[[null,null,"Y"],[null,"G",null],[null,null,null]],"px":[[null,null,"R"],[null,"R",null],[null,null,null]]},"faces":["py","pz","px"]},{"step":3,"name":"右插（棱块转向右）","alg":"U R U' R' U' F' U F","hint":"棱块在顶层，正面颜色对着自己 → 插到右下","d":{"py":[[null,"R",null],[null,"W",null],[null,null,null]],"pz":[[null,"G",null],[null,"G",null],[null,null,null]],"px":[[null,null,null],[null,"R",null],[null,null,null]]},"faces":["py","pz","px"]},{"step":3,"name":"左插（棱块转向左）","alg":"U' F' U F U R U' R'","hint":"棱块在顶层，正面颜色对着自己 → 插到左下","d":{"py":[[null,null,null],[null,"W","G"],[null,null,null]],"pz":[[null,null,null],[null,"G",null],[null,null,null]],"px":[[null,"R",null],[null,"R",null],[null,null,null]]},"faces":["py","pz","px"]},{"step":4,"name":"一字（左右相对）","alg":"F R U R' U' F'","hint":"顶面只有中心/一字/L 都算同一类，反复执行到出现十字","d":{"py":[[null,"R",null],["W","W","W"],[null,"G",null]]},"faces":["py"]},{"step":4,"name":"L 形（两条相邻）","alg":"F R U R' U' F'","hint":"顶面只有中心/一字/L 都算同一类，反复执行到出现十字","d":{"py":[[null,"B",null],["W","W","G"],[null,"W",null]]},"faces":["py"]},{"step":5,"name":"Sune","alg":"R U R' U R U2 R'","hint":"顶面黄色形态决定用哪条","d":{"py":[["W","W","P"],["W","W","W"],["R","W","G"]]},"faces":["py"]},{"step":5,"name":"ASune","alg":"R' U' R U' R' U2 R","hint":"顶面黄色形态决定用哪条","d":{"py":[["R","W","B"],["W","W","W"],["W","W","P"]]},"faces":["py"]},{"step":5,"name":"H","alg":"R U R' U R U' R' U R U2 R'","hint":"顶面黄色形态决定用哪条","d":{"py":[["G","W","G"],["W","W","W"],["B","W","B"]]},"faces":["py"]},{"step":5,"name":"Pi","alg":"R U2 R2 U' R2 U' R2 U2 R","hint":"顶面黄色形态决定用哪条","d":{"py":[["B","W","P"],["W","W","W"],["G","W","P"]]},"faces":["py"]},{"step":5,"name":"T","alg":"R U R' U' R' F R F'","hint":"顶面黄色形态决定用哪条","d":{"py":[["R","R","W"],["W","W","W"],["G","G","W"]]},"faces":["py"]},{"step":5,"name":"U","alg":"R2 D R' U2 R D' R' U2 R'","hint":"顶面黄色形态决定用哪条","d":{"py":[["R","W","G"],["W","W","W"],["W","W","W"]]},"faces":["py"]},{"step":6,"name":"三角换 · 顺时针","alg":"R' F R' B2 R F' R' B2 R2","hint":"三个角块循环，块已朝上只差位置","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","B"],["G","G","G"],["G","G","G"]],"px":[["G","R","P"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},{"step":6,"name":"三角换 · 逆时针","alg":"R2 B2 R F R' B2 R F' R","hint":"镜像情况","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","R"],["G","G","G"],["G","G","G"]],"px":[["B","R","B"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},{"step":7,"name":"三棱换 · Ua","alg":"R U' R U R U R U' R' U' R2","hint":"三个棱块循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","R","G"],["G","G","G"],["G","G","G"]],"px":[["R","P","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},{"step":7,"name":"三棱换 · Ub","alg":"R2 U R U R' U' R' U' R' U R'","hint":"反向循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","P","G"],["G","G","G"],["G","G","G"]],"px":[["R","G","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},{"step":7,"name":"四棱交叉 · Z","alg":"M2 U M2 U M' U2 M2 U2 M'","hint":"对面两棱互换","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["B","P","B"],["G","G","G"],["G","G","G"]],"px":[["P","B","P"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]}];
+
+  const SEC_TITLE = {
+    2: '② 第一层角块（底角归位）',
+    3: '③ 第二层棱块',
+    4: '④ 顶面十字',
+    5: '⑤ 顶面角块朝向（黄面朝上）',
+    6: '⑥ 顶层角块归位',
+    7: '⑦ 顶层棱块归位'
+  };
+  const SEC_NOTE = {
+    5: '顶面角块朝向共 7 种，这里画了 6 种；遇到对不上的（L 形）就反复做 Sune，直到变成图中某一种。'
+  };
+  const GAL_COLOR = { W: '#f8fafc', Y: '#facc15', G: '#22c55e', R: '#ef4444', B: '#3b82f6', P: '#A600C7' };
+  const FACE_META = { py: ['u', '上'], pz: ['f', '前'], px: ['r', '右'] };
+
+  let galBuilt = false;
+
+  function buildGrid(rows) {
+    const g = document.createElement('div');
+    g.className = 'g1';
+    for (const row of rows) {
+      for (const v of row) {
+        const i = document.createElement('i');
+        if (v && GAL_COLOR[v]) i.style.background = GAL_COLOR[v];
+        g.appendChild(i);
+      }
+    }
+    return g;
+  }
+
+  function buildDiagram(d, faces) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dg' + (faces.length === 1 ? ' single' : '');
+    for (const f of faces) {
+      const m = FACE_META[f];
+      if (!m || !d[f]) continue;
+      const box = document.createElement('div');
+      box.className = m[0];
+      const lbl = document.createElement('div');
+      lbl.className = 'lbl';
+      lbl.textContent = m[1];
+      box.appendChild(lbl);
+      box.appendChild(buildGrid(d[f]));
+      wrap.appendChild(box);
+    }
+    return wrap;
+  }
+
+  function buildCase(c) {
+    const el = document.createElement('div');
+    el.className = 'case';
+    el.appendChild(buildDiagram(c.d, c.faces));
+    const info = document.createElement('div');
+    info.className = 'ci';
+    let html = '<div class="cn">' + c.name + '</div><div class="ca">' + c.alg + '</div>';
+    if (c.hint) html += '<div class="ch">' + c.hint + '</div>';
+    info.innerHTML = html;
+    el.appendChild(info);
+    return el;
+  }
+
+  function renderGallery() {
+    if (galBuilt) return;
+    galBuilt = true;
+    for (const step of [2, 3, 4, 5, 6, 7]) {
+      const list = GALLERY.filter(function (c) { return c.step === step; });
+      if (!list.length) continue;
+      const sec = document.createElement('div');
+      sec.className = 'gal-sec';
+      const h = document.createElement('h3');
+      h.innerHTML = SEC_TITLE[step] + '<s>' + list.length + ' 种形态</s>';
+      sec.appendChild(h);
+      if (SEC_NOTE[step]) {
+        const nt = document.createElement('div');
+        nt.className = 'gal-note';
+        nt.textContent = SEC_NOTE[step];
+        sec.appendChild(nt);
+        sec.querySelector('h3').style.marginBottom = '6px';
+      }
+      const box = document.createElement('div');
+      box.className = 'cases';
+      box.style.marginTop = SEC_NOTE[step] ? '8px' : '0';
+      for (const c of list) box.appendChild(buildCase(c));
+      sec.appendChild(box);
+      galBody.appendChild(sec);
+    }
+  }
+
+  function openGallery() {
+    exitSlow();
+    renderGallery();
+    galleryPanel.classList.add('show');
+    learnBtn.classList.add('primary');
+  }
+  function closeGallery() {
+    galleryPanel.classList.remove('show');
+    learnBtn.classList.remove('primary');
+  }
+
+  learnBtn.addEventListener('click', function () {
+    if (galleryPanel.classList.contains('show')) closeGallery();
+    else openGallery();
+  });
+  galClose.addEventListener('click', closeGallery);
+
+  /* ================= 转动队列 ================= */
+  let queue = [];
+  let busy = false;
+  let history = [];
+
+  function enqueue(task) {
+    queue.push(task);
+    if (!busy) runQueue();
+  }
+  function runQueue() {
+    if (!queue.length) { busy = false; refreshHud(); return; }
+    busy = true;
+    const t = queue.shift();
+    t(runQueue);
+  }
+  function pushMove(name, opts) { const m = parseMove(name); pushTurn(m.axis, m.layer, m.angle, opts); }
+  function pushTurn(axis, layer, angle, opts) {
+    const o = opts || {};
+    enqueue(function (next) {
+      turnAnimated(axis, layer, angle, o.ms || 230, function () {
+        if (o.undoStep) {
+          opStack.pop();
+          moves = Math.max(0, moves - 1);
+        } else {
+          if (!o.silent) moves++;
+          if (!o.noHistory) history.push({ axis: axis, layer: layer, angle: angle });
+          if (o.learnStep) opStack.pop();
+          else opStack.push({ axis: axis, layer: layer, angle: angle });
+        }
+        if (isSolvedNow()) opStack = [];
+        refreshHud();
+        next();
+      });
+    });
+  }
+
+  function turnSync(axis, layer, angle) {
+    const M = rotMatrix(axis, angle);
+    const i = AXIS_INDEX[axis];
+    for (const c of cubies) {
+      if (c.pos[i] !== layer) continue;
+      c.pos = applyMatrix(M, c.pos);
+      const next = {};
+      for (const f of FACES) next[vecKey(applyMatrix(M, f.v))] = c.colors[f.key];
+      c.colors = next;
+      paint(c);
+      c.body.style.transform = translateOf(c.pos);
+    }
+    refreshMirrors();
+  }
+  function turnAnimated(axis, layer, angle, ms, done) {
+    const i = AXIS_INDEX[axis];
+    const list = cubies.filter(c => c.pos[i] === layer);
+    const n = [0, 0, 0]; n[i] = 1;
+    const ax = n[0], ay = -n[1], az = n[2], ang = -angle;
+    for (const c of list) {
+      c.el.style.transition = 'transform ' + ms + 'ms cubic-bezier(.3,.05,.25,1)';
+      c.el.style.transform = 'rotate3d(' + ax + ',' + ay + ',' + az + ',' + ang + 'deg)';
+    }
+    setTimeout(function () {
+      turnSync(axis, layer, angle);
+      for (const c of list) { c.el.style.transition = 'none'; c.el.style.transform = ''; }
+      void cubeEl.offsetWidth;
+      for (const c of list) c.el.style.transition = '';
+      if (done) done();
+    }, ms + 16);
+  }
+
+  function reset() {
+    queue = []; busy = false; history = []; moves = 0; opStack = [];
+    exitSlow();
+    buildCube();
+    refreshHud();
+  }
+  function undo() {
+    if (busy || !history.length) return;
+    const h = history.pop();
+    enqueue(function (next) {
+      turnAnimated(h.axis, h.layer, -h.angle, 200, function () {
+        opStack.pop();
+        moves = Math.max(0, moves - 1);
+        refreshHud();
+        next();
+      });
+    });
+  }
+  function scramble() {
+    if (busy) return;
+    exitSlow();
+    opStack = [];
+    const faces = ['U', 'D', 'L', 'R', 'F', 'B'];
+    let prev = '';
+    for (let i = 0; i < 22; i++) {
+      let f;
+      do { f = faces[Math.floor(Math.random() * 6)]; } while (f === prev);
+      prev = f;
+      const name = f + (Math.random() < 0.5 ? '' : "'");
+      pushMove(name, { ms: 90, silent: true, noHistory: true });
+    }
+    moves = 0;
+    history = [];
+    refreshHud();
+  }
+
+  function refreshHud() {
+    moveCountEl.textContent = moves;
+    const data = cubies.map(c => ({ pos: c.pos, colors: c.colors }));
+    const solved = !busy && isSolvedNow();
+    stateTextEl.textContent = solved ? '已还原' : (busy ? '转动中' : '未还原');
+    stateTextEl.className = solved ? 'ok' : '';
+    if (slowMode) refreshSlow();
+  }
+
+  /* ================= 视角 ================= */
+  function applyView() {
+    const t = 'scale(' + zoom + ') rotateX(' + viewX + 'deg) rotateY(' + viewY + 'deg)';
+    cubeEl.style.transform = t;
+    mirrorsEl.style.transform = t;
+    refreshMirrors();
+  }
+
+  let dragging = false, lastX = 0, lastY = 0, gesture = null;
+  const FACE_CLASS_KEY = { front: 'pz', back: 'nz', right: 'px', left: 'nx', up: 'py', down: 'ny' };
+  const AXIS_VEC = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
+  function cross3(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+  function screenOf(v) { const s = viewOf(v); return [s[0], s[1]]; }
+  function faceNormalOf(key) { for (const f of FACES) if (f.key === key) return f.v; return null; }
+  const probeEl = document.getElementById('probe');
+  function unitSize() {
+    const w = probeEl ? probeEl.offsetWidth : 0;
+    return w > 6 ? w : 38;
+  }
+  function pickTurn(g, dx, dy) {
+    const n = faceNormalOf(g.faceKey);
+    if (!n) return null;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return null;
+    let best = null;
+    for (const name in AXIS_VEC) {
+      const a = AXIS_VEC[name];
+      if (Math.abs(a[0]*n[0] + a[1]*n[1] + a[2]*n[2]) > 0.5) continue;
+      const ms = screenOf(cross3(a, n));
+      const len = Math.hypot(ms[0], ms[1]);
+      if (len < 0.2) continue;
+      const dot = (dx*ms[0] + dy*ms[1]) / len;
+      const score = Math.abs(dot) / dist;
+      if (!best || score > best.score) best = { axis: name, len: len, score: score, proj: Math.abs(dot), sign: dot >= 0 ? 1 : -1 };
+    }
+    return best;
+  }
+  function fireSwipeTurn(g, t) {
+    g.mode = 'done';
+    pushTurn(t.axis, g.cubie.pos[AXIS_INDEX[t.axis]], t.sign * 90, { ms: 200 });
+  }
+
+  const SWIPE_RATIO = 0.8, SWIPE_MIN_PX = 13, VIEW_FALLBACK_PX = 26;
+
+  stageEl.addEventListener('pointerdown', e => {
+    lastX = e.clientX; lastY = e.clientY;
+    dragging = true;
+    stageEl.classList.add('dragging');
+    if (stageEl.setPointerCapture) stageEl.setPointerCapture(e.pointerId);
+    let cubie = null, faceKey = null;
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('face')) {
+      const holder = t.closest ? t.closest('.cubie') : null;
+      if (holder && holder.__cubie) {
+        for (const cls in FACE_CLASS_KEY) if (t.classList.contains(cls)) { faceKey = FACE_CLASS_KEY[cls]; break; }
+        if (faceKey) cubie = holder.__cubie;
+      }
+    }
+    gesture = { mode: (cubie && !busy && e.button !== 2) ? 'pending' : 'view', cubie: cubie, faceKey: faceKey, startX: e.clientX, startY: e.clientY };
+  });
+  stageEl.addEventListener('pointermove', e => {
+    if (!dragging || !gesture) return;
+    const g = gesture;
+    if (g.mode === 'view') {
+      viewY += (e.clientX - lastX) * 0.45;
+      viewX -= (e.clientY - lastY) * 0.45;
+      lastX = e.clientX; lastY = e.clientY;
+      applyView();
+      return;
+    }
+    if (g.mode !== 'pending') return;
+    const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+    const moved = Math.hypot(dx, dy);
+    if (moved < 4) return;
+    const t = pickTurn(g, dx, dy);
+    if (!t || t.score < 0.45) {
+      if (moved > VIEW_FALLBACK_PX) {
+        g.mode = 'view';
+        viewY += dx * 0.45; viewX -= dy * 0.45;
+        lastX = e.clientX; lastY = e.clientY;
+        applyView();
+      }
+      return;
+    }
+    const step = Math.max(SWIPE_MIN_PX, t.len * unitSize());
+    if (t.proj < step * SWIPE_RATIO) return;
+    fireSwipeTurn(g, t);
+  });
+  function endDrag() {
+    const g = gesture;
+    dragging = false;
+    stageEl.classList.remove('dragging');
+    gesture = null;
+    if (g && g.mode === 'view') snapToAxis();
+  }
+  function cancelDrag() { dragging = false; stageEl.classList.remove('dragging'); gesture = null; }
+  stageEl.addEventListener('pointerup', endDrag);
+  stageEl.addEventListener('pointercancel', cancelDrag);
+  stageEl.addEventListener('contextmenu', e => { if (gesture) e.preventDefault(); });
+
+  function snapToAxis() {
+    const nx = HOME_X + Math.round((viewX - HOME_X) / 90) * 90;
+    const ny = HOME_Y + Math.round((viewY - HOME_Y) / 90) * 90;
+    if (nx === viewX && ny === viewY) return;
+    viewX = nx; viewY = ny;
+    cubeEl.style.transition = 'transform 280ms cubic-bezier(.3,.05,.25,1)';
+    mirrorsEl.style.transition = 'transform 280ms cubic-bezier(.3,.05,.25,1)';
+    applyView();
+    setTimeout(() => { cubeEl.style.transition = ''; mirrorsEl.style.transition = ''; }, 300);
+  }
+  stageEl.addEventListener('wheel', function (e) {
+    if (e.ctrlKey) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.08 : 0.92;
+    const nz = Math.min(2.4, Math.max(0.45, zoom * factor));
+    if (nz === zoom) return;
+    zoom = nz;
+    applyView();
+  }, { passive: false });
+  stageEl.addEventListener('dblclick', () => {
+    viewX = HOME_X; viewY = HOME_Y; zoom = 1;
+    cubeEl.style.transition = 'transform .3s ease';
+    mirrorsEl.style.transition = 'transform .3s ease';
+    applyView();
+    setTimeout(() => { cubeEl.style.transition = ''; mirrorsEl.style.transition = ''; }, 320);
+  });
+
+  /* ================= 镜面 ================= */
+  const MIRROR_DOMS = {
+    nx: document.getElementById('mirror-nx'), px: document.getElementById('mirror-px'),
+    py: document.getElementById('mirror-py'), ny: document.getElementById('mirror-ny'),
+    pz: document.getElementById('mirror-pz'), nz: document.getElementById('mirror-nz')
+  };
+  const MIRROR_CELLS = {};
+  for (const k in MIRROR_DOMS) MIRROR_CELLS[k] = Array.from(MIRROR_DOMS[k].children);
+  const FACE_CELL = {
+    px: (r,c) => [1,1-r,c-1], nx: (r,c) => [-1,1-r,1-c],
+    py: (r,c) => [c-1,1,1-r], ny: (r,c) => [c-1,-1,r-1],
+    pz: (r,c) => [c-1,1-r,1], nz: (r,c) => [1-c,1-r,-1]
+  };
+  function findCubie(x, y, z) {
+    for (const c of cubies) if (c.pos[0] === x && c.pos[1] === y && c.pos[2] === z) return c;
+    return null;
+  }
+  function viewMatrix() {
+    const ax = viewX * Math.PI / 180, ay = viewY * Math.PI / 180;
+    const cx = Math.cos(ax), sx = Math.sin(ax), cy = Math.cos(ay), sy = Math.sin(ay);
+    return [[cy,0,sy],[sx*sy,cx,-sx*cy],[-cx*sy,sx,cx*cy]];
+  }
+  function toView(M, d) {
+    return [
+      M[0][0]*d[0] + M[0][1]*d[1] + M[0][2]*d[2],
+      M[1][0]*d[0] + M[1][1]*d[1] + M[1][2]*d[2],
+      M[2][0]*d[0] + M[2][1]*d[1] + M[2][2]*d[2]
+    ];
+  }
+  function viewOf(d) { return toView(viewMatrix(), [d[0], -d[1], d[2]]); }
+  function refreshMirrors() {
+    for (const f of FACES) {
+      const dom = MIRROR_DOMS[f.key], cells = MIRROR_CELLS[f.key];
+      const v = viewOf(f.v);
+      if (v[2] < 0) {
+        dom.classList.add('show');
+        const get = FACE_CELL[f.key];
+        for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+          const p = get(r, c);
+          const cu = findCubie(p[0], p[1], p[2]);
+          cells[r*3 + c].style.background = (cu && cu.colors[f.key]) || INNER;
+        }
+      } else dom.classList.remove('show');
+    }
+  }
+
+  /* ================= 按钮与键盘 ================= */
+  const MOVE_NAMES = ['U',"U'",'D',"D'",'L',"L'",'R',"R'",'F',"F'",'B',"B'"];
+  const KEY_LABELS_2 = { U:'4',"U'":'6', D:'D',"D'":'A', L:'S',"L'":'W', R:'8',"R'":'2', F:'3',"F'":'1', B:'7',"B'":'9' };
+  function keyLabel(name) {
+    if (scheme === 1) return name.length > 1 ? '⇧' + name[0] : name;
+    return KEY_LABELS_2[name];
+  }
+  function renderMoveButtons() {
+    moveRow.innerHTML = '';
+    MOVE_NAMES.forEach(name => {
+      const key = keyLabel(name);
+      const b = document.createElement('button');
+      b.className = 'move';
+      b.innerHTML = '<s>' + name + '</s><b>' + key + '</b>';
+      b.title = name + ' → 键盘 ' + key;
+      b.addEventListener('click', () => pushMove(name));
+      moveRow.appendChild(b);
+    });
+  }
+
+  document.getElementById('scrambleBtn').addEventListener('click', scramble);
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('viewBtn').addEventListener('click', () => {
+    viewX = HOME_X; viewY = HOME_Y; zoom = 1;
+    cubeEl.style.transition = 'transform .3s ease';
+    mirrorsEl.style.transition = 'transform .3s ease';
+    applyView();
+    setTimeout(() => { cubeEl.style.transition = ''; mirrorsEl.style.transition = ''; }, 320);
+  });
+
+  const SCHEME_TIPS = {
+    1: '方案① U D L R F B 转层 · 按住 Shift 反向 · 数字键 1-9 / Shift+A·D 转中层',
+    2: '方案② W/S 左列上下 · A/D 底行左右 · 8/2 右列 · 4/6 顶行 · 1/3 前逆顺 · 7/9 后逆顺 · 5 切换中层 / Shift（或空格）+8·2·4·6 / A·D / 1·3 转中层 · 方向键换面'
+  };
+  const SCHEME_MARK = { 1: '①', 2: '②' };
+  let scheme = 2;
+  try {
+    const saved = parseInt(localStorage.getItem('mofang.scheme.v3'), 10);
+    if (saved === 1 || saved === 2) scheme = saved;
+  } catch (err) {}
+  function applyScheme() {
+    schemeBtn.textContent = '键盘 ' + SCHEME_MARK[scheme];
+    keyTip.textContent = SCHEME_TIPS[scheme];
+    renderMoveButtons();
+    try { localStorage.setItem('mofang.scheme.v3', String(scheme)); } catch (err) {}
+  }
+
+  function rotateView(dYaw, dPitch, animate) {
+    viewY += dYaw; viewX += dPitch;
+    if (animate) {
+      cubeEl.style.transition = 'transform 220ms cubic-bezier(.3,.05,.25,1)';
+      mirrorsEl.style.transition = 'transform 220ms cubic-bezier(.3,.05,.25,1)';
+      applyView();
+      setTimeout(() => { cubeEl.style.transition = ''; mirrorsEl.style.transition = ''; }, 240);
+    } else applyView();
+  }
+
+  const FACE_VEC = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  function frontFace() {
+    let best = FACE_VEC[0], bestZ = -Infinity;
+    for (const d of FACE_VEC) { const v = viewOf(d); if (v[2] > bestZ) { bestZ = v[2]; best = d; } }
+    return best;
+  }
+  function sideFace(which) {
+    const f = frontFace();
+    const cand = FACE_VEC.filter(d => d[0]*f[0] + d[1]*f[1] + d[2]*f[2] === 0);
+    let best = cand[0], bestVal = Infinity;
+    for (const d of cand) {
+      const v = viewOf(d);
+      const val = which === 'left' ? v[0] : which === 'right' ? -v[0] : which === 'top' ? v[1] : -v[1];
+      if (val < bestVal) { bestVal = val; best = d; }
+    }
+    return best;
+  }
+  const MOTION_DIR = { up: [0,-1,0], down: [0,1,0], left: [-1,0,0], right: [1,0,0] };
+  function worldTurnFromCss(w) {
+    const M = viewMatrix();
+    const v = [
+      M[0][0]*w[0] + M[1][0]*w[1] + M[2][0]*w[2],
+      M[0][1]*w[0] + M[1][1]*w[1] + M[2][1]*w[2],
+      M[0][2]*w[0] + M[1][2]*w[1] + M[2][2]*w[2]
+    ];
+    const n = [v[0], -v[1], v[2]];
+    let idx = 0;
+    for (let i = 1; i < 3; i++) if (Math.abs(n[i]) > Math.abs(n[idx])) idx = i;
+    return { axis: ['x','y','z'][idx], angle: -90 * (n[idx] >= 0 ? 1 : -1) };
+  }
+  function turnFor(slab, dir) {
+    const u = viewOf(slab), d = MOTION_DIR[dir];
+    let s = Math.sign(u[1]*d[0] - u[0]*d[1]);
+    if (!s) s = 1;
+    const t = worldTurnFromCss([u[0]*s, u[1]*s, u[2]*s]);
+    return { axis: t.axis, layer: slab[{x:0,y:1,z:2}[t.axis]], angle: t.angle };
+  }
+  function faceTurn(face, cw) {
+    const u = viewOf(face), k = cw ? 1 : -1;
+    const t = worldTurnFromCss([u[0]*k, u[1]*k, u[2]*k]);
+    return { axis: t.axis, layer: face[{x:0,y:1,z:2}[t.axis]], angle: t.angle };
+  }
+  const ARROWS = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] };
+  const MOTION = {
+    w:{side:'left',dir:'up'}, s:{side:'left',dir:'down'},
+    a:{side:'bottom',dir:'left'}, d:{side:'bottom',dir:'right'},
+    ArrowLeft:{side:'top',dir:'left'}, ArrowRight:{side:'top',dir:'right'},
+    ArrowUp:{side:'right',dir:'up'}, ArrowDown:{side:'right',dir:'down'}
+  };
+  function applyMotion(key, middle) {
+    const m = MOTION[key]; if (!m) return;
+    const t = turnFor(sideFace(m.side), m.dir);
+    if (middle) t.layer = 0;
+    pushTurn(t.axis, t.layer, t.angle);
+  }
+  function digitTurn(k, middle) {
+    const side = { '8':['right','up'], '2':['right','down'], '4':['top','left'], '6':['top','right'] }[k];
+    if (side) {
+      const t = turnFor(sideFace(side[0]), side[1]);
+      if (middle) t.layer = 0;
+      pushTurn(t.axis, t.layer, t.angle);
+      return true;
+    }
+    if (k === '1' || k === '3') {
+      const t = faceTurn(frontFace(), k === '3');
+      if (middle) t.layer = 0;
+      pushTurn(t.axis, t.layer, t.angle);
+      return true;
+    }
+    if (k === '7' || k === '9') {
+      const f = frontFace();
+      const t = faceTurn([-f[0],-f[1],-f[2]], k === '7');
+      if (middle) t.layer = 0;
+      pushTurn(t.axis, t.layer, t.angle);
+      return true;
+    }
+    return false;
+  }
+  function switchFace(k) { rotateView(ARROWS[k][0]*90, ARROWS[k][1]*90, true); }
+
+  let spaceDown = false, shiftDown = false, middleMode = false, midFlashTimer = 0;
+  function setMiddleMode(on) {
+    middleMode = on;
+    layerModeEl.textContent = on ? '中层' : '外层';
+    layerModeEl.classList.toggle('mid', on);
+  }
+  function flashMiddle() {
+    layerModeEl.textContent = '中层';
+    layerModeEl.classList.add('mid');
+    clearTimeout(midFlashTimer);
+    midFlashTimer = setTimeout(function () {
+      layerModeEl.textContent = middleMode ? '中层' : '外层';
+      layerModeEl.classList.toggle('mid', middleMode);
+    }, 700);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    const k = e.key;
+    if (k === 'Shift') shiftDown = true;
+    const dm = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
+    const SHIFTED = { '*':'8','@':'2','$':'4','^':'6','(':'9','!':'1' };
+    let digit = dm ? dm[1] : (k >= '1' && k <= '9' ? k : '');
+    if (!digit && e.shiftKey && SHIFTED[k]) digit = SHIFTED[k];
+    if (!digit && e.keyCode) {
+      if (e.keyCode >= 49 && e.keyCode <= 57) digit = String(e.keyCode - 48);
+      else if (e.keyCode >= 97 && e.keyCode <= 105) digit = String(e.keyCode - 96);
+    }
+    if (e.code === 'Space' || k === ' ') { e.preventDefault(); spaceDown = true; return; }
+    if (digit === '5') { e.preventDefault(); if (!e.repeat) setMiddleMode(!middleMode); return; }
+    const shiftState = e.shiftKey || shiftDown || (typeof e.getModifierState === 'function' && e.getModifierState('Shift'));
+    if (spaceDown && ARROWS[k]) {
+      e.preventDefault();
+      const step = shiftState ? 7 : 90;
+      rotateView(ARROWS[k][0]*step, ARROWS[k][1]*step, !shiftState);
+      return;
+    }
+    const wantMiddle = middleMode || shiftState || spaceDown;
+    if (digit && digitTurn(digit, wantMiddle)) {
+      e.preventDefault();
+      if (wantMiddle && !middleMode) flashMiddle();
+      return;
+    }
+    if (ARROWS[k]) { e.preventDefault(); switchFace(k); return; }
+    const scheme1Letter = scheme === 1 && 'udlrfb'.includes(k.toLowerCase()) && k.length === 1;
+    if (!scheme1Letter && k.length === 1 && 'wsad'.includes(k.toLowerCase())) {
+      e.preventDefault();
+      applyMotion(k.toLowerCase(), wantMiddle);
+      if (wantMiddle && !middleMode) flashMiddle();
+      return;
+    }
+    if (scheme === 1) {
+      const upper = k.toUpperCase();
+      if (!'UDLRFB'.includes(upper) || upper.length !== 1) return;
+      e.preventDefault();
+      pushMove(shiftState ? upper + "'" : upper);
+      return;
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (e.code === 'Space' || e.key === ' ') spaceDown = false;
+    if (e.key === 'Shift') shiftDown = false;
+  });
+  window.addEventListener('blur', () => { spaceDown = false; shiftDown = false; });
+  schemeBtn.addEventListener('click', () => { scheme = scheme === 1 ? 2 : 1; applyScheme(); });
+
+  /* ================= 启动 ================= */
+  buildCube();
+  refreshHud();
+  applyScheme();
+})();
+</script>
+
+
+</body>
+</html>
+
+

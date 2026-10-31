@@ -199,7 +199,7 @@
 
   <div class="head">
     <h1>魔方</h1>
-    <span class="badge">离线 3D</span>
+    <span class="badge">离线 3D · v7</span>
   </div>
 
   <div class="hud">
@@ -232,7 +232,7 @@
   </div>
 
   <p class="tip">
-    拖动空白处旋转视角（松手吸附到坐标轴） · 滚轮放大缩小 · 双击复位视角<br>
+    在魔方表面滑过相邻的两个色块 → 那一层朝滑动方向转 90°（右键拖动仍是转视角） · 拖动空白处旋转视角 · 滚轮缩放 · 双击复位<br>
     <span id="keyTip"></span>
   </p>
 
@@ -268,7 +268,10 @@
 
   let cubies = [];
   let moves = 0;
-  let viewX = -24, viewY = -34;
+  /* 初始视角（3/4 等轴视角）。拖动松手后吸附到以该角度为基准的 90° 网格，
+     保证每次都能回到这个角度，而不会卡到正面（0°/90°）的轴向视角。 */
+  const HOME_X = -24, HOME_Y = -34;
+  let viewX = HOME_X, viewY = HOME_Y;
   let zoom = 1;
 
   function rotMatrix(axis, deg) {
@@ -315,6 +318,7 @@
     el.appendChild(body);
 
     const cubie = { pos: [x, y, z], colors: colors, faces: faces, el: el, body: body };
+    el.__cubie = cubie;
     paint(cubie);
     body.style.transform = translateOf(cubie.pos);
     return cubie;
@@ -505,32 +509,148 @@
   }
 
   let dragging = false, lastX = 0, lastY = 0;
+  let gesture = null;
 
+  /* ================= 鼠标滑动转层 ================= */
+  const FACE_CLASS_KEY = { front: 'pz', back: 'nz', right: 'px', left: 'nx', up: 'py', down: 'ny' };
+  const AXIS_VEC = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
+  function cross3(a, b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  }
+  function screenOf(v) { const s = viewOf(v); return [s[0], s[1]]; }
+  function faceNormalOf(key) {
+    for (const f of FACES) if (f.key === key) return f.v;
+    return null;
+  }
+  function unitSize() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--s');
+    const n = parseFloat(raw);
+    return isFinite(n) && n > 0 ? n : 38;
+  }
+
+  /* 绕轴 a 正转时，面上一点的速度方向 m = a × n（n = 面法向）。
+     把 m 投到屏幕再和鼠标位移点乘：得分高的轴就是要转的轴，符号定正反，
+     投影长度就是「沿这一格方向滑了多远（px）」。 */
+  function pickTurn(g, dx, dy) {
+    const n = faceNormalOf(g.faceKey);
+    if (!n) return null;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return null;
+
+    let best = null;
+    for (const name in AXIS_VEC) {
+      const a = AXIS_VEC[name];
+      if (Math.abs(a[0] * n[0] + a[1] * n[1] + a[2] * n[2]) > 0.5) continue;  // 轴必须落在该面内
+      const ms = screenOf(cross3(a, n));
+      const len = Math.hypot(ms[0], ms[1]);
+      if (len < 0.2) continue;
+      const dot = (dx * ms[0] + dy * ms[1]) / len;
+      const score = Math.abs(dot) / dist;
+      if (!best || score > best.score) {
+        best = { axis: name, len: len, score: score, proj: Math.abs(dot), sign: dot >= 0 ? 1 : -1 };
+      }
+    }
+    return best;
+  }
+
+  /* 滑过相邻色块 → 该层朝滑动方向转 90°（一次手势只转一格） */
+  function fireSwipeTurn(g, t) {
+    g.mode = 'done';
+    const layer = g.cubie.pos[AXIS_INDEX[t.axis]];
+    pushTurn(t.axis, layer, t.sign * 90, { ms: 200 });
+  }
+
+  const SWIPE_RATIO = 0.8;    // 1 格 = 1 单位，滑满 0.8 格才判定为「滑过了相邻色块」
+  const SWIPE_MIN_PX = 13;
+  const VIEW_FALLBACK_PX = 26;
+
+  /* ================= 指针手势 ================= */
   stageEl.addEventListener('pointerdown', e => {
-    dragging = true;
     lastX = e.clientX; lastY = e.clientY;
+    dragging = true;
     stageEl.classList.add('dragging');
     if (stageEl.setPointerCapture) stageEl.setPointerCapture(e.pointerId);
+
+    let cubie = null, faceKey = null;
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('face')) {
+      const holder = t.closest ? t.closest('.cubie') : null;
+      if (holder && holder.__cubie) {
+        for (const cls in FACE_CLASS_KEY) {
+          if (t.classList.contains(cls)) { faceKey = FACE_CLASS_KEY[cls]; break; }
+        }
+        if (faceKey) cubie = holder.__cubie;
+      }
+    }
+
+    gesture = {
+      /* 右键在魔方上拖 = 转视角；左键按在色块上 = 滑动转层 */
+      mode: (cubie && !busy && e.button !== 2) ? 'pending' : 'view',
+      cubie: cubie, faceKey: faceKey,
+      startX: e.clientX, startY: e.clientY
+    };
   });
+
   stageEl.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    viewY += (e.clientX - lastX) * 0.45;
-    viewX -= (e.clientY - lastY) * 0.45;
-    lastX = e.clientX; lastY = e.clientY;
-    applyView();
+    if (!dragging || !gesture) return;
+    const g = gesture;
+
+    if (g.mode === 'view') {
+      viewY += (e.clientX - lastX) * 0.45;
+      viewX -= (e.clientY - lastY) * 0.45;
+      lastX = e.clientX; lastY = e.clientY;
+      applyView();
+      return;
+    }
+
+    if (g.mode !== 'pending') return;   // 已经判定过（转过或转视角）就等松手
+
+    const dx = e.clientX - g.startX;
+    const dy = e.clientY - g.startY;
+    const moved = Math.hypot(dx, dy);
+    if (moved < 4) return;
+
+    const t = pickTurn(g, dx, dy);
+    if (!t || t.score < 0.45) {
+      /* 方向太偏（比如往屏幕里推）→ 改成拖视角 */
+      if (moved > VIEW_FALLBACK_PX) {
+        g.mode = 'view';
+        viewY += dx * 0.45;
+        viewX -= dy * 0.45;
+        lastX = e.clientX; lastY = e.clientY;
+        applyView();
+      }
+      return;
+    }
+
+    const step = Math.max(SWIPE_MIN_PX, t.len * unitSize());
+    if (t.proj < step * SWIPE_RATIO) return;   // 还没滑到下一个色块
+    fireSwipeTurn(g, t);
   });
+
   function endDrag() {
+    const g = gesture;
     dragging = false;
     stageEl.classList.remove('dragging');
-    snapToAxis();
+    gesture = null;
+    if (g && g.mode === 'view') snapToAxis();
   }
+
+  function cancelDrag() {
+    dragging = false;
+    stageEl.classList.remove('dragging');
+    gesture = null;
+  }
+
   stageEl.addEventListener('pointerup', endDrag);
-  stageEl.addEventListener('pointercancel', endDrag);
+  stageEl.addEventListener('pointercancel', cancelDrag);
+  stageEl.addEventListener('contextmenu', e => { if (gesture) e.preventDefault(); });
 
   /* 视图旋转对固定坐标轴吸附：松手后吸附到最近的 90°，让魔方与投射面始终停留在坐标轴系内 */
   function snapToAxis() {
-    const nx = Math.round(viewX / 90) * 90;
-    const ny = Math.round(viewY / 90) * 90;
+    const nx = HOME_X + Math.round((viewX - HOME_X) / 90) * 90;
+    const ny = HOME_Y + Math.round((viewY - HOME_Y) / 90) * 90;
     if (nx === viewX && ny === viewY) return;
     viewX = nx; viewY = ny;
     cubeEl.style.transition = 'transform 280ms cubic-bezier(.3,.05,.25,1)';
@@ -551,7 +671,7 @@
   }, { passive: false });
 
   stageEl.addEventListener('dblclick', () => {
-    viewX = -24; viewY = -34; zoom = 1;
+    viewX = HOME_X; viewY = HOME_Y; zoom = 1;
     cubeEl.style.transition = 'transform .3s ease';
     mirrorsEl.style.transition = 'transform .3s ease';
     applyView();
@@ -575,13 +695,15 @@
     MIRROR_CELLS[k] = Array.from(MIRROR_DOMS[k].children);
   }
 
+  /* 每个投射面按自身的局部坐标取色：局部右 = 列方向，局部下 = 行方向。
+     px/nx/py/ny 之前存在镜像或上下颠倒，这里按实际 3D 朝向校正。 */
   const FACE_CELL = {
-    px: (r, c) => [ 1, 1 - r, 1 - c],
-    nx: (r, c) => [-1, 1 - r, -1 + c],
-    py: (r, c) => [-1 + c, 1, -1 + r],
-    ny: (r, c) => [-1 + c, -1, 1 - r],
-    pz: (r, c) => [-1 + c, 1 - r, 1],
-    nz: (r, c) => [ 1 - c, 1 - r, -1]
+    px: (r, c) => [ 1, 1 - r, c - 1],
+    nx: (r, c) => [-1, 1 - r, 1 - c],
+    py: (r, c) => [c - 1, 1, 1 - r],
+    ny: (r, c) => [c - 1, -1, r - 1],
+    pz: (r, c) => [c - 1, 1 - r, 1],
+    nz: (r, c) => [1 - c, 1 - r, -1]
   };
 
   function findCubie(x, y, z) {
@@ -670,7 +792,7 @@
   document.getElementById('undoBtn').addEventListener('click', undo);
   document.getElementById('resetBtn').addEventListener('click', reset);
   document.getElementById('viewBtn').addEventListener('click', () => {
-    viewX = -24; viewY = -34; zoom = 1;
+    viewX = HOME_X; viewY = HOME_Y; zoom = 1;
     cubeEl.style.transition = 'transform .3s ease';
     mirrorsEl.style.transition = 'transform .3s ease';
     applyView();
@@ -681,8 +803,8 @@
   });
 
   const SCHEME_TIPS = {
-    1: '方案① U D L R F B 转层 · 按住 Shift 反向',
-    2: '方案② W/S 左列上下 · A/D 底行左右 · 8/2 右列 · 4/6 顶行 · 1/3 前逆顺 · 7/9 后逆顺 · 5 切换中层 / Shift+8·2·4·6 转中层 · 方向键换面'
+    1: '方案① U D L R F B 转层 · 按住 Shift 反向 · 数字键 1-9 / Shift+A·D 转中层',
+    2: '方案② W/S 左列上下 · A/D 底行左右 · 8/2 右列 · 4/6 顶行 · 1/3 前逆顺 · 7/9 后逆顺 · 5 切换中层 / Shift（或空格）+8·2·4·6 / A·D / 1·3 转中层 · 方向键换面'
   };
   const SCHEME_MARK = { 1: '①', 2: '②' };
 
@@ -787,10 +909,11 @@
     ArrowDown:  { side: 'right', dir: 'down' }
   };
 
-  function applyMotion(key) {
+  function applyMotion(key, middle) {
     const m = MOTION[key];
     if (!m) return;
     const t = turnFor(sideFace(m.side), m.dir);
+    if (middle) t.layer = 0;
     pushTurn(t.axis, t.layer, t.angle);
   }
 
@@ -804,12 +927,14 @@
     }
     if (k === '1' || k === '3') {
       const t = faceTurn(frontFace(), k === '3');
+      if (middle) t.layer = 0;
       pushTurn(t.axis, t.layer, t.angle);
       return true;
     }
     if (k === '7' || k === '9') {
       const f = frontFace();
       const t = faceTurn([-f[0], -f[1], -f[2]], k === '7');
+      if (middle) t.layer = 0;
       pushTurn(t.axis, t.layer, t.angle);
       return true;
     }
@@ -821,7 +946,9 @@
   }
 
   let spaceDown = false;
+  let shiftDown = false;
   let middleMode = false;
+  let midFlashTimer = 0;
 
   function setMiddleMode(on) {
     middleMode = on;
@@ -829,11 +956,30 @@
     layerModeEl.classList.toggle('mid', on);
   }
 
+  /* 临时转中层时，让 HUD 闪一下「中层」，方便确认按键确实被识别 */
+  function flashMiddle() {
+    layerModeEl.textContent = '中层';
+    layerModeEl.classList.add('mid');
+    clearTimeout(midFlashTimer);
+    midFlashTimer = setTimeout(function () {
+      layerModeEl.textContent = middleMode ? '中层' : '外层';
+      layerModeEl.classList.toggle('mid', middleMode);
+    }, 700);
+  }
+
   document.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     const k = e.key;
+    if (k === 'Shift') shiftDown = true;
     const dm = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
-    const digit = dm ? dm[1] : (k >= '1' && k <= '9' ? k : '');
+    /* 兼容：部分输入法/键盘在按住 Shift 时 e.code 为空，或只给到 e.key 的符号（US 布局） */
+    const SHIFTED = { '*': '8', '@': '2', '$': '4', '^': '6', '(': '9', '!': '1' };
+    let digit = dm ? dm[1] : (k >= '1' && k <= '9' ? k : '');
+    if (!digit && e.shiftKey && SHIFTED[k]) digit = SHIFTED[k];
+    if (!digit && e.keyCode) {
+      if (e.keyCode >= 49 && e.keyCode <= 57) digit = String(e.keyCode - 48);
+      else if (e.keyCode >= 97 && e.keyCode <= 105) digit = String(e.keyCode - 96);
+    }
 
     if (e.code === 'Space' || k === ' ') {
       e.preventDefault();
@@ -847,10 +993,35 @@
       return;
     }
 
+    /* Shift 状态三重判断：e.shiftKey 在部分输入法/虚拟键盘下不可靠 */
+    const shiftState = e.shiftKey || shiftDown ||
+      (typeof e.getModifierState === 'function' && e.getModifierState('Shift'));
+
     if (spaceDown && ARROWS[k]) {
       e.preventDefault();
-      const step = e.shiftKey ? 7 : 90;
-      rotateView(ARROWS[k][0] * step, ARROWS[k][1] * step, !e.shiftKey);
+      const step = shiftState ? 7 : 90;
+      rotateView(ARROWS[k][0] * step, ARROWS[k][1] * step, !shiftState);
+      return;
+    }
+
+    /* 转中层：5 切换 / 按住 Shift / 按住空格（Shift 被输入法吃掉时可用空格代替）
+       数字键在两种键盘方案下都生效，避免切到方案①后快捷键失效 */
+    const wantMiddle = middleMode || shiftState || spaceDown;
+    if (digit && digitTurn(digit, wantMiddle)) {
+      e.preventDefault();
+      if (wantMiddle && !middleMode) flashMiddle();
+      return;
+    }
+
+    /* 以下三个分支放在方案①之前，避免方案①的提前 return 把方向键 / WASD 吃掉 */
+    if (ARROWS[k]) { e.preventDefault(); switchFace(k); return; }
+
+    /* 方案①里 UDLRFB 是转面键，只有 d 与 WASD 重叠，留给方案① */
+    const scheme1Letter = scheme === 1 && 'udlrfb'.includes(k.toLowerCase()) && k.length === 1;
+    if (!scheme1Letter && k.length === 1 && 'wsad'.includes(k.toLowerCase())) {
+      e.preventDefault();
+      applyMotion(k.toLowerCase(), wantMiddle);
+      if (wantMiddle && !middleMode) flashMiddle();
       return;
     }
 
@@ -858,22 +1029,16 @@
       const upper = k.toUpperCase();
       if (!'UDLRFB'.includes(upper) || upper.length !== 1) return;
       e.preventDefault();
-      pushMove(e.shiftKey ? upper + "'" : upper);
+      pushMove(shiftState ? upper + "'" : upper);
       return;
-    }
-
-    if (digit && digitTurn(digit, middleMode || e.shiftKey)) { e.preventDefault(); return; }
-    if (ARROWS[k]) { e.preventDefault(); switchFace(k); return; }
-    if (k.length === 1 && 'wsad'.includes(k.toLowerCase())) {
-      e.preventDefault();
-      applyMotion(k.toLowerCase());
     }
   });
 
   document.addEventListener('keyup', e => {
     if (e.code === 'Space' || e.key === ' ') spaceDown = false;
+    if (e.key === 'Shift') shiftDown = false;
   });
-  window.addEventListener('blur', () => { spaceDown = false; });
+  window.addEventListener('blur', () => { spaceDown = false; shiftDown = false; });
 
   schemeBtn.addEventListener('click', () => {
     scheme = scheme === 1 ? 2 : 1;

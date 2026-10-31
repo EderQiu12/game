@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>魔方 · 离线 3D 镜面版 · 公式图册</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="probe" aria-hidden="true"></div>
+
+  <div class="head">
+    <h1>魔方</h1>
+    <span class="badge">离线 3D · v34 · 层先法 / 进阶</span>
+  </div>
+
+  <div class="hud">
+    <span>步数<b id="moveCount">0</b></span>
+    <span>状态<b id="stateText">已还原</b></span>
+    <span>层<b id="layerMode">外层</b></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="mirrors" id="mirrors">
+      <div class="mirror" id="mirror-nx"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-py"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-ny"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-pz"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="mirror" id="mirror-nz"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="cube" id="cube"></div>
+  </div>
+
+  <div class="controls">
+    <div class="learn" id="slowPanel">
+      <div class="learn-top">
+        <span class="learn-badge">慢放复位</span>
+        <span id="slowCount">—</span>
+      </div>
+      <div class="learn-main" id="slowHint">—</div>
+      <div class="row">
+        <button class="primary" id="slowNextBtn">下一步</button>
+        <button id="slowAutoBtn">自动播放</button>
+        <button id="slowExitBtn">退出</button>
+      </div>
+    </div>
+    <div class="gallery" id="galleryPanel">
+      <div class="gal-head">
+        <span class="learn-badge">公式图册</span>
+        <span class="mode-sw" id="setSw">
+          <button id="setLayer" class="on">层先法</button>
+          <button id="setPro">进阶</button>
+        </span>
+        <span class="mode-sw" id="modeSw">
+          <button id="modeManual" class="on">手动</button>
+          <button id="modeAuto">自动</button>
+        </span>
+        <button class="gal-x" id="galClose">×</button>
+      </div>
+      <div class="gal-note" id="galNote">—</div>
+      <div class="gal-hit none" id="galHit">—</div>
+      <div class="gal-body" id="galBody"></div>
+    </div>
+    <div class="row" id="moveRow">
+      <button id="undoBtn">撤销</button>
+      <button id="redoBtn">重做</button>
+    </div>
+    <div class="row">
+      <button class="primary" id="scrambleBtn">打乱</button>
+      <span class="reset-wrap">
+        <button id="resetBtn">复位 ▾</button>
+        <div class="reset-menu" id="resetMenu">
+          <button id="resetInstant">瞬间复位</button>
+          <button id="resetSlow">慢放复位</button>
+        </div>
+      </span>
+      <button id="viewBtn">视角</button>
+      <button id="learnBtn">学习</button>
+      <button id="schemeBtn" title="切换键盘方案">键盘 ②</button>
+    </div>
+  </div>
+
+  <p class="tip">
+    在魔方表面滑过相邻的两个色块 → 那一层朝滑动方向转 90°（右键拖动仍是转视角） · 拖动空白处旋转视角 · 滚轮缩放 · 双击复位<br>
+    <span id="keyTip"></span>
+  </p>
+
+<script src="app.js"></script>
+</body>
+</html>
