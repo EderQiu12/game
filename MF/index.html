@@ -56,16 +56,16 @@
   .face.down   { transform: rotateX(-90deg) translateZ(calc(var(--s) * 0.5)); }
   .face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(150deg, rgba(255,255,255,.28), rgba(255,255,255,0) 55%, rgba(0,0,0,.18)); pointer-events: none; }
 
-  .mirror { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * 3.4); height: calc(var(--s) * 3.4); margin-left: calc(var(--s) * -1.7); margin-top: calc(var(--s) * -1.7); padding: calc(var(--s) * 0.08); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: calc(var(--s) * 0.08); border-radius: calc(var(--s) * 0.3); background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(96, 165, 250, 0.35); box-shadow: 0 0 35px rgba(59, 130, 246, 0.2), inset 0 0 25px rgba(59, 130, 246, 0.15); transform-style: preserve-3d; backface-visibility: visible; opacity: 0; transition: opacity 0.3s ease; }
+  .mirror { position: absolute; left: 50%; top: 50%; width: calc(var(--s) * 2.267); height: calc(var(--s) * 2.267); margin-left: calc(var(--s) * -1.1335); margin-top: calc(var(--s) * -1.1335); padding: calc(var(--s) * 0.053); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: calc(var(--s) * 0.053); border-radius: calc(var(--s) * 0.2); background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(96, 165, 250, 0.35); box-shadow: 0 0 24px rgba(59, 130, 246, 0.2), inset 0 0 17px rgba(59, 130, 246, 0.15); transform-style: preserve-3d; backface-visibility: visible; opacity: 0; transition: opacity 0.3s ease; }
   .mirror.show { opacity: 1; }
   .mirror::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,.05) 60%, rgba(255,255,255,0) 100%); pointer-events: none; }
-  .mirror i { display: block; border-radius: calc(var(--s) * 0.15); background: #0b0e14; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); transition: background 0.2s ease; opacity: 0.95; }
-  #mirror-nx { transform: translate3d(calc(var(--s) * -5.7), 0, 0) rotateY(90deg); }
-  #mirror-px { transform: translate3d(calc(var(--s) * 5.7), 0, 0) rotateY(-90deg); }
-  #mirror-py { transform: translate3d(0, calc(var(--s) * -5.7), 0) rotateX(-90deg); }
-  #mirror-ny { transform: translate3d(0, calc(var(--s) * 5.7), 0) rotateX(90deg); }
-  #mirror-pz { transform: translate3d(0, 0, calc(var(--s) * 5.7)) rotateY(0deg); }
-  #mirror-nz { transform: translate3d(0, 0, calc(var(--s) * -5.7)) rotateY(180deg); }
+  .mirror i { display: block; border-radius: calc(var(--s) * 0.1); background: #0b0e14; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); transition: background 0.2s ease; opacity: 0.95; }
+  #mirror-nx { transform: translate3d(calc(var(--s) * -3.8), 0, 0) rotateY(90deg); }
+  #mirror-px { transform: translate3d(calc(var(--s) * 3.8), 0, 0) rotateY(-90deg); }
+  #mirror-py { transform: translate3d(0, calc(var(--s) * -3.8), 0) rotateX(-90deg); }
+  #mirror-ny { transform: translate3d(0, calc(var(--s) * 3.8), 0) rotateX(90deg); }
+  #mirror-pz { transform: translate3d(0, 0, calc(var(--s) * 3.8)) rotateY(0deg); }
+  #mirror-nz { transform: translate3d(0, 0, calc(var(--s) * -3.8)) rotateY(180deg); }
 
   .controls { width: 100%; max-width: 460px; margin-top: auto; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 10; padding-bottom: 10px; }
   .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
@@ -231,7 +231,7 @@
     :root { --s: clamp(46px, 9vmin, 84px); }
     body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+      grid-template-columns: minmax(0, 1fr) clamp(360px, 36vw, 620px);
       grid-template-rows: auto auto minmax(0, 1fr) auto;
       grid-template-areas:
         "head  controls"
@@ -327,26 +327,27 @@
       <div class="gal-body" id="galBody"></div>
     </div>
     <div class="row" id="moveRow">
+      <button id="schemeBtn" title="切换键盘方案">键盘 ②</button>
       <button id="undoBtn">撤销</button>
       <button id="redoBtn">重做</button>
     </div>
     <div class="row">
-      <button class="primary" id="scrambleBtn">打乱</button>
       <span class="reset-wrap">
-        <button id="resetBtn">复位 ▾</button>
+        <button id="resetBtn" class="primary">复位 ▾</button>
         <div class="reset-menu" id="resetMenu">
+          <button id="scrambleBtn">打乱</button>
           <button id="resetInstant">瞬间复位</button>
           <button id="resetSlow">慢放复位</button>
         </div>
       </span>
       <button id="viewBtn">视角</button>
       <button id="learnBtn">学习</button>
-      <button id="schemeBtn" title="切换键盘方案">键盘 ②</button>
+    </div>
     </div>
   </div>
 
   <p class="tip">
-    在魔方表面滑过相邻的两个色块 → 那一层朝滑动方向转 90°（右键拖动仍是转视角） · 拖动空白处旋转视角 · 滚轮缩放 · 双击复位<br>
+    拖动空白处旋转视角 · 滚轮缩放 · 双击复位<br>
     <span id="keyTip"></span>
   </p>
 
@@ -514,15 +515,13 @@
       layer = u[k];
       angle = -90 * u[k];              // 从该面外侧看顺时针
     } else {
-      const def = MID_DEF[face];
+      /* M/E/S 一律跟随视角：找 partner 面当前落在哪根轴上，
+         该轴中层就是「现在看到的那个中层」，方向从该面外侧看顺时针。 */
       const u = screenFaceVec(MID_PARTNER[face]);
       const k = u[0] ? 0 : (u[1] ? 1 : 2);
-      const ax = ['x', 'y', 'z'][k];
-      if (ax === def.axis) {           // 视角只是绕这根轴转了整圈 → 方向跟着翻
-        axis = ax; layer = 0; angle = -90 * u[k];
-      } else {                         // 视角把这对侧面转走了 → 保持原定义
-        axis = def.axis; layer = 0; angle = def.angle;
-      }
+      axis = ['x', 'y', 'z'][k];
+      layer = 0;
+      angle = -90 * u[k];
     }
     if (isPrime) angle = -angle;
     if (isDouble) angle = angle * 2;
@@ -1557,22 +1556,22 @@
     cancelMatch();
     if (runCase) { autoArmed = false; stopRun(); }
     holdMatch = true;
-    const toks = expandAlg(c.alg.split(' ').filter(Boolean));
+    const toks = (c.bodyParsed && c.bodyParsed.length)
+      ? c.bodyParsed
+      : expandAlg(c.alg.split(' ').filter(Boolean)).map(function (n) { return parseMove(n); });
     for (let k = toks.length - 1; k >= 0; k--) {
-      const mv = parseMove(toks[k]);
+      const mv = toks[k];
       pushTurn(mv.axis, mv.layer, -mv.angle, {
         ms: 150, runStep: true,
         onApplied: k === 0 ? function () { holdMatch = false; scheduleMatch(0); } : null
       });
     }
-    /* 之前是靠先转 U 对齐才命中的，回退时也要把那几下转回来 */
     const pre = c.pre || 0;
     const upMv = parseMove('U');
     for (let i = 0; i < pre; i++) {
       pushTurn(upMv.axis, upMv.layer, -upMv.angle, { ms: 150, runStep: true, undoStep: true });
     }
   }
-
 
   for (const c of GALLERY) {
     const list = caseList(c.d);
@@ -1788,8 +1787,20 @@
     if (!runCase) return [];
     const body = expandAlg(runCase.alg.split(' ').filter(Boolean));
     const pre = [];
-    for (let i = 0; i < runPre; i++) pre.push('U');
-    return pre.concat(body);
+    if (runPre === 1) pre.push('U');
+    else if (runPre === 2) pre.push('U', 'U');
+    else if (runPre === 3) pre.push("U'");
+    const raw = pre.concat(body);
+    const out = [];
+    for (const t of raw) {
+      if (/2$/.test(t)) {
+        const base = t.replace(/2$/, '');
+        out.push(base, base);          // X2 → X, X
+      } else {
+        out.push(t);
+      }
+    }
+    return out;
   }
   function parseRunMoves() {
     return runMoves().map(function (n) { return parseMove(n); });
@@ -1866,6 +1877,7 @@
     autoArmed = false;
     runHalf = null;
     runParsed = parseRunMoves();          // ★ 关键
+    c.bodyParsed = expandAlg(c.alg.split(' ').filter(Boolean)).map(function (n) { return parseMove(n); });
     renderRun();
     if (runMode === 'auto') runTimer = setTimeout(stepRun, 1400);
   }
@@ -2657,7 +2669,6 @@
     
     overlay.innerHTML = `
       <div id="landscape-header" style="position:absolute; top:0; left:0; width:100%; height:35px; pointer-events:none;">
-        <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); font-size:14px; color:#94a3b8; white-space:nowrap;" id="landscape-step-text">第一步骤：底面十字</div>
         <div style="position:absolute; bottom:0; left:0; width:100%; height:1px; background:rgba(255,255,255,0.15);"></div>
         <div style="position:absolute; bottom:0; left:16.66%; height:8px; width:1px; background:rgba(255,255,255,0.3);"></div>
         <div style="position:absolute; bottom:0; left:33.33%; height:8px; width:1px; background:rgba(255,255,255,0.3);"></div>
