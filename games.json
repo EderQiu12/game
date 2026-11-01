@@ -1,20 +1,27 @@
 {
   "root": [
     { "name": "益智游戏合集", "url": "?path=puzzle", "icon": "📁", "type": "dir" },
-    { "name": "动作游戏合集", "url": "?path=action", "icon": "📁", "type": "dir" },
     { "name": "2048", "url": "2048.html", "icon": "🔢", "type": "file" },
     { "name": "数独", "url": "sudoku.html", "icon": "🔢", "type": "file" },
+    { "name": "五子棋", "url": "wzq.html", "icon": "⚫", "type": "file" },
     { "name": "贪吃蛇", "url": "贪吃蛇.html", "icon": "🐍", "type": "file" },
+    { "name": "贪吃蛇 · 防误触版", "url": "tcs.html", "icon": "🐍", "type": "file" },
+    { "name": "贪吃蛇 · 自定义版", "url": "tcs_0.html", "icon": "🐍", "type": "file" },
     { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "🧩", "type": "file" },
     { "name": "扫雷", "url": "扫雷.html", "icon": "💣", "type": "file" },
     { "name": "魔方", "url": "魔方.html", "icon": "🧩", "type": "file" },
     { "name": "魔方 PWA版", "url": "MF/index.html", "icon": "🧊", "type": "file" }
   ],
-  "MF": [
-    { "name": "魔方", "url": "MF/index.html", "icon": "🧩", "type": "file" },
-    { "name": "扫雷", "url": "puzzle/扫雷.html", "icon": "💣", "type": "file" }
+  "puzzle": [
+    { "name": "2048", "url": "2048.html", "icon": "🔢", "type": "file" },
+    { "name": "数独", "url": "sudoku.html", "icon": "🔢", "type": "file" },
+    { "name": "五子棋", "url": "wzq.html", "icon": "⚫", "type": "file" },
+    { "name": "贪吃蛇", "url": "贪吃蛇.html", "icon": "🐍", "type": "file" },
+    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "🧩", "type": "file" },
+    { "name": "扫雷", "url": "扫雷.html", "icon": "💣", "type": "file" },
+    { "name": "魔方", "url": "魔方.html", "icon": "🧩", "type": "file" }
   ],
-  "action": [
-    { "name": "拳皇", "url": "action/kof.html", "icon": "🥊", "type": "file" }
+  "MF": [
+    { "name": "魔方", "url": "MF/index.html", "icon": "🧩", "type": "file" }
   ]
 }
