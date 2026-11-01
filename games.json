@@ -1,24 +1,20 @@
 {
   "root": [
-    { "name": "益智游戏合集", "url": "?path=puzzle", "icon": "📁", "type": "dir" },
-    { "name": "2048", "url": "2048.html", "icon": "🔢", "type": "file" },
-    { "name": "数独", "url": "sudoku.html", "icon": "🔢", "type": "file" },
-    { "name": "五子棋", "url": "wzq.html", "icon": "⚫", "type": "file" },
-    { "name": "贪吃蛇 · 防误触版", "url": "tcs.html", "icon": "🐍", "type": "file" },
-    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "🧩", "type": "file" },
-    { "name": "扫雷", "url": "扫雷.html", "icon": "💣", "type": "file" },
-    { "name": "魔方", "url": "魔方.html", "icon": "🧩", "type": "file" },
-    { "name": "魔方 PWA版", "url": "MF/index.html", "icon": "🧊", "type": "file" }
+    { "name": "益智游戏合集", "url": "?path=puzzle", "icon": "icons/games/folder.svg", "type": "dir" },
+    { "name": "2048", "url": "2048.html", "icon": "icons/games/2048.svg", "type": "file" },
+    { "name": "数独", "url": "sudoku.html", "icon": "icons/games/sudoku.svg", "type": "file" },
+    { "name": "五子棋", "url": "wzq.html", "icon": "icons/games/wzq.svg", "type": "file" },
+    { "name": "贪吃蛇 · 防误触版", "url": "tcs.html", "icon": "icons/games/tcs.svg", "type": "file" },
+    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "icons/games/tetris.svg", "type": "file" },
+    { "name": "扫雷", "url": "扫雷.html", "icon": "icons/games/saolei.svg", "type": "file" },
+    { "name": "魔方", "url": "魔方.html", "icon": "icons/games/mofang.svg", "type": "file" }
   ],
   "puzzle": [
-    { "name": "2048", "url": "2048.html", "icon": "🔢", "type": "file" },
-    { "name": "数独", "url": "sudoku.html", "icon": "🔢", "type": "file" },
-    { "name": "五子棋", "url": "wzq.html", "icon": "⚫", "type": "file" },
-    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "🧩", "type": "file" },
-    { "name": "扫雷", "url": "扫雷.html", "icon": "💣", "type": "file" },
-    { "name": "魔方", "url": "魔方.html", "icon": "🧩", "type": "file" }
-  ],
-  "MF": [
-    { "name": "魔方", "url": "MF/index.html", "icon": "🧩", "type": "file" }
+    { "name": "2048", "url": "2048.html", "icon": "icons/games/2048.svg", "type": "file" },
+    { "name": "数独", "url": "sudoku.html", "icon": "icons/games/sudoku.svg", "type": "file" },
+    { "name": "五子棋", "url": "wzq.html", "icon": "icons/games/wzq.svg", "type": "file" },
+    { "name": "俄罗斯方块", "url": "俄罗斯方块.html", "icon": "icons/games/tetris.svg", "type": "file" },
+    { "name": "扫雷", "url": "扫雷.html", "icon": "icons/games/saolei.svg", "type": "file" },
+    { "name": "魔方", "url": "魔方.html", "icon": "icons/games/mofang.svg", "type": "file" }
   ]
 }

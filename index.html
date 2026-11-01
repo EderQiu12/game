@@ -79,7 +79,20 @@
             transform: translateY(-5px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
-        .game-icon { font-size: 40px; margin-bottom: 10px; }
+        .game-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .game-icon img {
+            width: 52px;
+            height: 52px;
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+        }
         .game-name { font-size: 16px; font-weight: bold; text-align: center; padding: 0 10px;}
         .dir-card { background-color: #2a3b4c; border-color: #3e5368; }
         .dir-card:hover { background-color: #354b61; }
@@ -139,8 +152,9 @@
                         a.target = '_self';
                     }
 
+                    const iconIsImage = /\.(svg|png|webp|jpg|jpeg)$/i.test(game.icon);
                     a.innerHTML = `
-                        <div class="game-icon">${game.icon}</div>
+                        <div class="game-icon">${iconIsImage ? `<img src="${game.icon}" alt="" loading="lazy">` : game.icon}</div>
                         <div class="game-name">${game.name}</div>
                     `;
                     listContainer.appendChild(a);
