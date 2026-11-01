@@ -2,21 +2,49 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的游戏大厅</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>游戏大厅</title>
+    <meta name="description" content="离线可玩的网页游戏合集：五子棋、贪吃蛇、俄罗斯方块、数独、扫雷、魔方等">
+    <meta name="theme-color" content="#1e1e1e">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="游戏大厅">
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
             background-color: #1e1e1e;
             color: white;
-            padding: 20px 50px;
+            padding: 20px clamp(12px, 4vw, 50px);
         }
         .header {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 15px;
-            margin-bottom: 30px;
+            margin-bottom: 24px;
         }
+        .install-btn {
+            margin-left: auto;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .install-btn:active { background: #2563eb; }
+        .install-btn:hover { background: #2563eb; }
+        .ios-tip {
+            margin: -10px 0 20px;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        [hidden] { display: none !important; }
         .back-btn {
             display: none;
             background: #333;
@@ -62,7 +90,9 @@
     <div class="header">
         <a href="./" class="back-btn" id="back-btn">⬅ 返回上一级</a>
         <h1 id="page-title" style="margin: 0;">🎮 游戏大厅</h1>
+        <button class="install-btn" id="install-btn" hidden>安装到手机</button>
     </div>
+    <div class="ios-tip" id="ios-tip" hidden>iPhone / iPad：点 Safari 底部分享按钮 → “添加到主屏幕”</div>
 
     <div id="game-list">加载中...</div>
 
@@ -76,10 +106,11 @@
         const pageTitle = document.getElementById('page-title');
 
         // 如果不在 root 目录，显示返回按钮
+        const CATEGORY_NAMES = { puzzle: '益智游戏', action: '动作游戏', MF: '魔方' };
         if (currentPath !== 'root') {
             backBtn.style.display = 'inline-block';
             // 如果是一级目录，返回根目录；如果是多级，这里可以再优化
-            pageTitle.innerText = `📂 ${currentPath} 分类`;
+            pageTitle.textContent = `📂 ${CATEGORY_NAMES[currentPath] || currentPath}`;
         }
 
         // 请求 JSON 数据并渲染
@@ -119,6 +150,48 @@
                 console.error('获取数据失败:', error);
                 listContainer.innerHTML = '<p style="color:red;">加载配置失败，请确保通过 HTTP 服务器访问，且 games.json 存在。</p>';
             });
+    </script>
+    <script>
+        // PWA：注册 Service Worker（安装到手机的必要条件）
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((err) => {
+                    console.warn('Service Worker 注册失败:', err);
+                });
+            });
+        }
+
+        // 安装到手机
+        const installBtn = document.getElementById('install-btn');
+        let deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.hidden = false;
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            try { await deferredPrompt.userChoice; } catch (_) {}
+            deferredPrompt = null;
+            installBtn.hidden = true;
+        });
+
+        window.addEventListener('appinstalled', () => {
+            installBtn.hidden = true;
+        });
+
+        // iOS 没有 beforeinstallprompt，给出手动添加提示
+        (function () {
+            const ua = navigator.userAgent;
+            const isIOS = /iphone|ipad|ipod/i.test(ua);
+            const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            if (isIOS && !standalone) {
+                document.getElementById('ios-tip').hidden = false;
+            }
+        })();
     </script>
 </body>
 </html>

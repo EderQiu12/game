@@ -1,10 +1,9 @@
-const CACHE = 'mofang-v34-1';   // 改了 index.html 就改这个版本号
+const CACHE = 'mofang-v34-2';   // 改了 index.html 就改这个版本号
 
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png'
