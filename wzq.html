@@ -96,9 +96,43 @@
 
         .controls {
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
+            align-items: center;
+            gap: 10px;
             margin-top: 12px;
         }
+
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .size-control input[type="number"] {
+            width: 64px;
+            padding: 8px 6px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(0, 0, 0, 0.25);
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+            -moz-appearance: textfield;
+        }
+
+        .size-control input[type="number"]::-webkit-outer-spin-button,
+        .size-control input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .small-btn { padding: 9px 18px; font-size: 14px; }
 
         button {
             padding: 10px 25px;
@@ -160,13 +194,21 @@
             </div>
         </div>
         <div class="controls">
+            <div class="size-control">
+                <span>棋盘</span>
+                <input id="size-input" type="number" min="7" max="25" step="2" value="15" inputmode="numeric" title="7～25 路，奇数">
+                <span>路</span>
+            </div>
+            <button id="apply-size" class="small-btn">应用</button>
             <button id="restart-btn">重新开始</button>
         </div>
         <div class="hint">点击 / 触摸棋盘落子</div>
     </div>
 
     <script>
-        const N = 15;                       // 标准 15×15 棋盘
+        const DEFAULT_N = 15;
+        const SIZE_KEY = 'gomokuBoardSize';
+        let N = DEFAULT_N;                  // 棋盘路数，可在界面上自由设置
         const canvas = document.getElementById('gobang-board');
         const boardEl = document.querySelector('.game-board');
         const ctx = canvas.getContext('2d');
@@ -213,6 +255,19 @@
         function posX(j) { return pad + j * cell; }
         function posY(i) { return pad + i * cell; }
 
+        // 不同路数对应的星位
+        function starPointsFor(n) {
+            if (n >= 19 && n % 2 === 1) {
+                const a = 3, b = (n - 1) / 2, c = n - 4;
+                const pts = [];
+                for (const i of [a, b, c]) for (const j of [a, b, c]) pts.push([i, j]);
+                return pts;
+            }
+            const m = n <= 9 ? 2 : n <= 15 ? 3 : 4;
+            const mid = (n - 1) / 2;
+            return [[m, m], [m, n - 1 - m], [n - 1 - m, m], [n - 1 - m, n - 1 - m], [mid, mid]];
+        }
+
         function drawBoard() {
             ctx.clearRect(0, 0, size, size);
 
@@ -238,9 +293,9 @@
                 ctx.stroke();
             }
 
-            // 星位
+            // 星位（根据路数自适应）
             ctx.fillStyle = '#3a2410';
-            [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]].forEach(([i, j]) => {
+            starPointsFor(N).forEach(([i, j]) => {
                 ctx.beginPath();
                 ctx.arc(posX(j), posY(i), Math.max(2.5, cell * 0.11), 0, Math.PI * 2);
                 ctx.fill();
@@ -383,6 +438,31 @@
             initBoard();
         }
 
+        // 读取上次保存的棋盘路数
+        function loadSavedSize() {
+            let saved = NaN;
+            try { saved = parseInt(localStorage.getItem(SIZE_KEY), 10); } catch (_) {}
+            if (Number.isInteger(saved) && saved >= 7 && saved <= 25 && saved % 2 === 1) {
+                N = saved;
+            }
+            document.getElementById('size-input').value = N;
+        }
+
+        // 应用新的棋盘路数
+        function applyBoardSize() {
+            const input = document.getElementById('size-input');
+            let n = parseInt(input.value, 10);
+            if (!Number.isFinite(n)) n = N;
+            n = Math.max(7, Math.min(25, n));
+            if (n % 2 === 0) n++;                 // 只允许奇数路
+            input.value = n;
+
+            if (n === N) return;                  // 没变化就不重开
+            N = n;
+            try { localStorage.setItem(SIZE_KEY, String(N)); } catch (_) {}
+            initBoard();
+        }
+
         canvas.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             e.preventDefault();
@@ -392,6 +472,8 @@
 
         document.getElementById('restart-btn').addEventListener('click', restartGame);
         document.getElementById('new-game-btn').addEventListener('click', restartGame);
+        document.getElementById('apply-size').addEventListener('click', applyBoardSize);
+        document.getElementById('size-input').addEventListener('change', applyBoardSize);
 
         // 尺寸变化时重新计算，保留棋局
         let resizeTimer = null;
@@ -404,7 +486,10 @@
             }, 80);
         });
 
-        window.addEventListener('load', initBoard);
+        window.addEventListener('load', () => {
+            loadSavedSize();
+            initBoard();
+        });
         // 字体/布局就绪后校正一次
         if (document.fonts && document.fonts.ready) {
             document.fonts.ready.then(() => {
