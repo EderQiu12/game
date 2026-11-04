@@ -41,7 +41,7 @@
   .hud .ok { color: #34d399; }
   #layerMode.mid { color: #fbbf24; }
 
-  .stage { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; perspective: 2200px; touch-action: none; cursor: grab; user-select: none; margin: 10px 0; }
+  .stage { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; perspective: 1200px; touch-action: none; cursor: grab; user-select: none; margin: 10px 0; }
   .stage.dragging { cursor: grabbing; }
   .cube, .mirrors { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
   .mirrors { pointer-events: none; }
@@ -60,12 +60,12 @@
   .mirror.show { opacity: 1; }
   .mirror::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,.05) 60%, rgba(255,255,255,0) 100%); pointer-events: none; }
   .mirror i { display: block; border-radius: calc(var(--s) * 0.1); background: #0b0e14; box-shadow: inset 0 0 0 1px rgba(0,0,0,.55); transition: background 0.2s ease; opacity: 0.95; }
-  #mirror-nx { transform: translate3d(calc(var(--s) * -3.8), 0, 0) rotateY(90deg); }
-  #mirror-px { transform: translate3d(calc(var(--s) * 3.8), 0, 0) rotateY(-90deg); }
-  #mirror-py { transform: translate3d(0, calc(var(--s) * -3.8), 0) rotateX(-90deg); }
-  #mirror-ny { transform: translate3d(0, calc(var(--s) * 3.8), 0) rotateX(90deg); }
-  #mirror-pz { transform: translate3d(0, 0, calc(var(--s) * 3.8)) rotateY(0deg); }
-  #mirror-nz { transform: translate3d(0, 0, calc(var(--s) * -3.8)) rotateY(180deg); }
+  #mirror-nx { transform: translate3d(calc(var(--s) * -5), 0, 0) rotateY(90deg); }
+  #mirror-px { transform: translate3d(calc(var(--s) * 5), 0, 0) rotateY(-90deg); }
+  #mirror-py { transform: translate3d(0, calc(var(--s) * -5), 0) rotateX(-90deg); }
+  #mirror-ny { transform: translate3d(0, calc(var(--s) * 5), 0) rotateX(90deg); }
+  #mirror-pz { transform: translate3d(0, 0, calc(var(--s) * 5)) rotateY(0deg); }
+  #mirror-nz { transform: translate3d(0, 0, calc(var(--s) * -5)) rotateY(180deg); }
 
   .controls { width: 100%; max-width: 460px; margin-top: auto; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 10; padding-bottom: 10px; }
   .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
@@ -275,7 +275,7 @@
 
   <div class="head">
     <h1>魔方</h1>
-    <span class="badge">离线 3D · v34 · 层先法 / 进阶</span>
+    <span class="badge">离线 3D · v35 · 层先法 / 进阶</span>
   </div>
 
   <div class="hud">
@@ -315,6 +315,7 @@
         <span class="mode-sw" id="setSw">
           <button id="setLayer" class="on">层先法</button>
           <button id="setPro">进阶</button>
+          <button id="setSpeed">速拧</button>
         </span>
         <span class="mode-sw" id="modeSw">
           <button id="modeManual" class="on">手动</button>
@@ -443,7 +444,7 @@
       faces[f.key] = d;
     }
     el.appendChild(body);
-    const cubie = { pos: [x, y, z], colors: colors, faces: faces, el: el, body: body };
+    const cubie = { pos: [x, y, z], home: [x, y, z], colors: colors, faces: faces, el: el, body: body };
     el.__cubie = cubie;
     paint(cubie);
     body.style.transform = translateOf(cubie.pos);
@@ -726,9 +727,35 @@
   /* ================= 公式图册 ================= */
   const GALLERY = [
     // ===== Step 2: F2L 前两层基础 =====
-    {"step":2,"name":"F2L 基础 1：角棱相连 (右)","alg":"U R U' R'","hint":"角块和棱块在顶层已经连在一起，角块朝右，直接入槽","d":{"py":[[null,null,"W"],[null,"W",null],[null,null,null]],"pz":[[null,null,"G"],[null,"G",null],[null,null,null]],"px":[[null,null,"R"],[null,null,null],[null,null,null]]},"d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],"pz":[[null,null,null],[null,"G",null],[null,null,"G"]],"px":[[null,null,null],[null,"R",null],[null,null,"R"]]},"faces":["py","pz","px"]},
-    {"step":2,"name":"F2L 基础 2：角棱相连 (前)","alg":"U' F' U F","hint":"角块和棱块连在一起，角块朝前","d":{"py":[[null,null,"G"],[null,"W",null],[null,null,null]],"pz":[[null,null,"W"],[null,"G",null],[null,null,null]],"px":[[null,null,null],[null,"R",null],[null,null,null]]},"d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],"pz":[[null,null,null],[null,"G",null],[null,null,"G"]],"px":[[null,null,null],[null,"R",null],[null,null,"R"]]},"faces":["py","pz","px"]},
-    {"step":2,"name":"F2L 基础 3：分离状态","alg":"R U R'","hint":"角块在顶层且白朝前，棱块在顶层，简单入槽","d":{"py":[[null,null,null],[null,"W",null],[null,null,null]],"pz":[[null,null,"G"],[null,"G",null],[null,null,null]],"px":[[null,null,"R"],[null,"R",null],[null,null,null]]},"d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],"pz":[[null,null,null],[null,"G",null],[null,null,"G"]],"px":[[null,null,null],[null,"R",null],[null,null,"R"]]},"faces":["py","pz","px"]},
+    {"step":2,"name":"F2L 基础 1：角棱相连 (右)","alg":"U R U' R'",
+     "hint":"角块 UFR（绿朝上、黄朝前、红朝右），棱块 UR（绿朝上、红朝右），两块在 U 面相连 → 直接入槽",
+     "d":{"py":[[null,null,"G"],[null,"W","G"],[null,null,null]],
+          "pz":[[null,null,"Y"],[null,"G",null],[null,null,null]],
+          "px":[[null,"R","R"],[null,"R",null],[null,null,null]]},
+     "d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],
+           "pz":[[null,null,null],[null,"G","G"],[null,null,"G"]],
+           "px":[[null,null,null],[null,"R","R"],[null,null,"R"]]},
+     "faces":["py","pz","px"]},
+
+    {"step":2,"name":"F2L 基础 2：角棱相连 (前)","alg":"U' F' U F",
+     "hint":"角块 UFR（红朝上、绿朝前、黄朝右），棱块 UF（红朝上、绿朝前），两块在 F 面相连 → 直接入槽",
+     "d":{"py":[[null,"R","R"],[null,null,null],[null,null,null]],
+          "pz":[[null,"G","G"],[null,"G",null],[null,null,null]],
+          "px":[[null,null,"Y"],[null,"R",null],[null,null,null]]},
+     "d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],
+           "pz":[[null,null,null],[null,"G","G"],[null,null,"G"]],
+           "px":[[null,null,null],[null,"R","R"],[null,null,"R"]]},
+     "faces":["py","pz","px"]},
+
+    {"step":2,"name":"F2L 基础 3：分离状态","alg":"R U R'",
+     "hint":"角块 UFR（红朝上、绿朝前、黄朝右），棱块 UF（绿朝上、红朝前），两块不相连 → 先接上再入槽",
+     "d":{"py":[[null,"G","R"],[null,null,null],[null,null,null]],
+          "pz":[[null,"R","G"],[null,"G",null],[null,null,null]],
+          "px":[[null,null,"Y"],[null,"R",null],[null,null,null]]},
+     "d2":{"py":[[null,null,null],[null,"W",null],[null,null,null]],
+           "pz":[[null,null,null],[null,"G","G"],[null,null,"G"]],
+           "px":[[null,null,null],[null,"R","R"],[null,null,"R"]]},
+     "faces":["py","pz","px"]},
 
     // ===== Step 3: OLL 基础十字形态 =====
     {"step":3,"name":"OLL 45 (T型/一字)","alg":"F R U R' U' F'","hint":"顶面一条直线或T型","d":{"py":[[null,"R",null],["W","W","W"],[null,"G",null]]},"d2":{"py":[[null,"W",null],["W","W","W"],[null,"W",null]]},"faces":["py"]},
@@ -747,10 +774,10 @@
     {"step":5,"name":"左手小鱼 (OLL 27镜像)","alg":"L' U' L U' L' U2 L","hint":"鱼头朝左上时用左手","d":{"py":[["R","W","W"],["W","W","W"],["G","W","P"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]]},"tw":[0,-1,-1,-1],"faces":["py"]},
 
     // ===== Step 6: PLL 角块 =====
-    {"step":6,"name":"T-perm (相邻角块互换)","alg":"R U R' U' R' F R2 U' R' U' R U R' F'","hint":"顶面全好，相邻两个角块互换（最强常用公式）","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","P","R"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
-    {"step":6,"name":"三角换·顺时针 (Aa-perm)","alg":"x R' U' R D2 R' U R D2 R2 x'","hint":"三个角块顺时针循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","B"],["G","G","G"],["G","G","G"]],"px":[["G","R","P"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
+    {"step":6,"name":"T-perm (相邻角块互换)","alg":"R U R' U' R' F R2 U' R' U' R U R' F'","hint":"顶面全好，相邻两个角块互换（最强常用公式）","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","R"],["G","G","G"],["G","G","G"]],"px":[["G","P","B"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
+    {"step":6,"name":"E 型 · 对角互换 (E-perm)","alg":"x' R U' R' D R U R' D' R U R' D R U' R' D' x","hint":"四角全错位（两对对角互换）","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["P","G","R"],["G","G","G"],["G","G","G"]],"px":[["G","R","B"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
+    {"step":6,"name":"三角换·顺时针 (Aa-perm)","alg":"x R' U R' D2 R U' R' D2 R2 x'","hint":"三个角块顺时针循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","B"],["G","G","G"],["G","G","G"]],"px":[["G","R","P"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
     {"step":6,"name":"三角换·逆时针 (Ab-perm)","alg":"x R2 D2 R U R' D2 R U' R x'","hint":"三个角块逆时针循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","R"],["G","G","G"],["G","G","G"]],"px":[["B","R","B"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
-    {"step":6,"name":"E 型 · 对角互换 (E-perm)","alg":"x' R U' R' D R U R' D' R U R' D R U' R' D' x","hint":"四角全错位（两对对角互换）","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["B","G","B"],["G","G","G"],["G","G","G"]],"px":[["P","R","P"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
 
     // ===== Step 7: PLL 棱块 =====
     {"step":7,"name":"三棱换 · Ua","alg":"R U' R U R U R U' R' U' R2","hint":"三个棱块逆时针循环","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","R","G"],["G","G","G"],["G","G","G"]],"px":[["R","P","R"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
@@ -758,6 +785,67 @@
     {"step":7,"name":"四棱交换 · H","alg":"M2 U M2 U2 M2 U M2","hint":"对面两对棱互换","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","B","G"],["G","G","G"],["G","G","G"]],"px":[["R","P","R"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]},
     {"step":7,"name":"四棱交叉 · Z","alg":"M2 U M2 U M' U2 M2 U2 M'","hint":"对面两棱互换","d":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["B","P","B"],["G","G","G"],["G","G","G"]],"px":[["P","B","P"],["R","R","R"],["R","R","R"]]},"d2":{"py":[["W","W","W"],["W","W","W"],["W","W","W"]],"pz":[["G","G","G"],["G","G","G"],["G","G","G"]],"px":[["R","R","R"],["R","R","R"],["R","R","R"]]},"faces":["py","pz","px"]}
   ];
+  
+  
+    /* ================= 速拧法（CFOP）关键格 + 公式骨架 ================= */
+  const SPEED_MASK = {
+    F2L: ['U.1','U.2','U.3','U.4','U.5','U.6','U.7','U.8','U.9',
+          'F.1','F.2','F.3','F.4','F.5','F.6',
+          'R.1','R.2','R.3','R.4','R.5','R.6'],
+    OLL: ['U.1','U.2','U.3','U.4','U.5','U.6','U.7','U.8','U.9',
+          'F.1','F.2','F.3','R.1','R.2','R.3',
+          'B.1','B.2','B.3','L.1','L.2','L.3'],
+    PLL: ['F.1','F.2','F.3','R.1','R.2','R.3',
+          'B.1','B.2','B.3','L.1','L.2','L.3']
+  };
+
+  const SPEED_GALLERY = [
+    { step:'PLL', name:'T-perm',  alg:"R U R' U' R' F R2 U' R' U' R U R' F'", hint:'相邻两角互换' },
+    { step:'PLL', name:'Y-perm',  alg:"F R U' R' U' R U R' F' R U R' U' R' F R F'", hint:'对角两角 + 两棱互换' },
+    { step:'PLL', name:'Ua-perm', alg:"M2 U M U2 M' U M2", hint:'三棱逆时针' },
+    { step:'PLL', name:'Ub-perm', alg:"M2 U' M U2 M' U' M2", hint:'三棱顺时针' },
+    { step:'PLL', name:'H-perm',  alg:"M2 U M2 U2 M2 U M2", hint:'对面两对棱互换' },
+    { step:'PLL', name:'Z-perm',  alg:"M' U M2 U M2 U M' U2 M2", hint:'相邻两对棱互换' },
+    { step:'PLL', name:'Ja-perm', alg:"R' U L' U2 R U' R' U2 R L", hint:'两角 + 两棱互换' },
+    { step:'PLL', name:'Jb-perm', alg:"R U R' F' R U R' U' R' F R2 U' R'", hint:'两角 + 两棱互换（反向）' },
+    { step:'PLL', name:'Aa-perm', alg:"x R' U R' D2 R U' R' D2 R2 x'", hint:'三角顺时针' },
+    { step:'PLL', name:'Ab-perm', alg:"x R2 D2 R U R' D2 R U' R x'", hint:'三角逆时针' },
+    { step:'PLL', name:'Ra-perm', alg:"R U' R' U' R U R D R' U' R D' R' U2 R'", hint:'角块 + 棱块互换' },
+    { step:'PLL', name:'Rb-perm', alg:"R2 F R U R U' R' F' R U2 R' U2 R", hint:'角块 + 棱块互换（反向）' },
+    { step:'PLL', name:'Ga-perm', alg:"R2 U R' U R' U' R U' R2 U' D R' U R D'", hint:'G 型循环' },
+    { step:'PLL', name:'Gb-perm', alg:"R' U' R U D' R2 U R' U R U' R U' R2 D", hint:'G 型循环' },
+    { step:'PLL', name:'Gc-perm', alg:"R2 U' R U' R U R' U R2 U D' R U' R' D", hint:'G 型循环' },
+    { step:'PLL', name:'Gd-perm', alg:"R U R' U' D R2 U' R U' R' U R' U R2 D'", hint:'G 型循环' },
+    { step:'PLL', name:'F-perm',  alg:"R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R", hint:'相邻两对互换' },
+    { step:'PLL', name:'E-perm',  alg:"x' R U' R' D R U R' D' R U R' D R U' R' D' x", hint:'四角全错位' },
+    { step:'PLL', name:'Na-perm', alg:"R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'", hint:'对角 + 相邻棱互换' },
+    { step:'PLL', name:'Nb-perm', alg:"R' U R U' R' F' U' F R U R' F R' F' R U' R", hint:'对角 + 相邻棱互换（反向）' },
+    { step:'PLL', name:'V-perm',  alg:"R' U R' U' y R' F' R2 U' R' U R' F R F", hint:'对角 + 对角棱互换' },
+
+    { step:'OLL', name:'OLL 45 (T型)',  alg:"F R U R' U' F'", hint:'顶面 T 型' },
+    { step:'OLL', name:'OLL 44 (L型)',  alg:"F U R U' R' F'", hint:'顶面 L 型' },
+    { step:'OLL', name:'OLL 33 (线形)', alg:"R U R' U' R' F R F'", hint:'顶面一条直线' },
+    { step:'OLL', name:'OLL 27 (Sune)', alg:"R U R' U R U2 R'", hint:'小鱼形态' },
+    { step:'OLL', name:'OLL 26 (ASune)',alg:"R U2 R' U' R U' R'", hint:'反向小鱼' },
+    { step:'OLL', name:'OLL 21 (H型)',  alg:"R U R' U R U' R' U R U2 R'", hint:'H 型' },
+    { step:'OLL', name:'OLL 22 (Pi型)', alg:"R U2 R2 U' R2 U' R2 U2 R", hint:'Pi 型' },
+
+    { step:'F2L', name:'F2L 基础 1', alg:"U R U' R'",  hint:'角棱相连（右）' },
+    { step:'F2L', name:'F2L 基础 2', alg:"U' F' U F",  hint:'角棱相连（前）' },
+    { step:'F2L', name:'F2L 基础 3', alg:"U' R U R'",  hint:'角块白朝右' },
+    { step:'F2L', name:'F2L 基础 4', alg:"F' U' F",    hint:'角块白朝前' },
+    { step:'F2L', name:'F2L 基础 5', alg:"R U R'",     hint:'分离状态' },
+  ];
+
+  const SPEED_SEC_TITLE = { F2L: 'F2L 前两层', OLL: 'OLL 顶面朝向', PLL: 'PLL 顶层排列' };
+  const SPEED_SEC_NOTE = {
+    F2L: '目标：角块与棱块同时还原。看到「角棱相连」或「分离」状态，选对应公式直接入槽。',
+    OLL: '目标：顶面全色。按顶面朝向选公式，最多转 U 三次对照。',
+    PLL: '目标：顶层排列归位。顶面全色后，看侧面顶排颜色选公式。'
+  };
+  
+  
+  
   /* ================= 层先法公式集（eder 版，默认） =================
      记号：每面 9 格从左到右、从上到下；U 面的第 1 行靠后（展开图直觉）。
      中心色即符号：a=U 心, b=F 心, c=R 心, d=L 心, e=B 心, f=D 心。
@@ -832,26 +920,26 @@
       hint: '只有中心块朝上：两遍公式五 + U + 一遍公式五',
       cells: [['U.5','a']] },
     { step: 5, name: '角朝向 · 情况一', alg: LG_ALG.f6, tw: [0, 1, 1, 1],
-      hint: '十字已好、一个角朝上，顶色贴在右面（公式六）',
+      hint: '十字已好、一个角朝上，顶色贴在右面：公式六，作用四角顺时针',
       cells: [['U.5','a'],['U.2','a'],['U.4','a'],['U.6','a'],['U.8','a'],['U.9','a'],['R.3','a']] },
     { step: 5, name: '角朝向 · 情况二', alg: LG_ALG.f7, tw: [0, -1, -1, -1],
-      hint: '同上，顶色贴在前面（公式七）',
+      hint: '同上，顶色贴在前面：公式七，作用四角逆时针',
       cells: [['U.5','a'],['U.2','a'],['U.4','a'],['U.6','a'],['U.8','a'],['U.9','a'],['F.1','a']] },
-    { step: 5, name: '角朝向 · 情况三', alg: lgJoin(LG_ALG.f6, LG_ALG.f7), tw: [-1, 0, 1, 0],
-      hint: '只缺一个角：公式六（看是否变成情况二）+ 公式七',
-      cells: [['U.2','a'],['U.3','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.7','a'],['U.8','a'],['R.1','a']] },
-    { step: 5, name: '角朝向 · 情况四', alg: lgJoin(LG_ALG.f6, LG_ALG.f6), tw: [1, -1, 1, -1],
+    { step: 5, name: '角朝向 · 情况三', alg: lgJoin(LG_ALG.f6, LG_ALG.f6), tw: [1, -1, 1, -1],
       hint: '顶面两个角朝上（斜对）：公式六 + 公式六',
       cells: [['U.2','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.8','a'],['F.1','a'],['F.3','a']] },
-    { step: 5, name: '角朝向 · 情况五', alg: lgJoin(LG_ALG.f7, LG_ALG.f6), tw: [1, 0, 0, -1],
-      hint: '顶面两个角朝上（另一斜向）：公式七 + 公式六',
-      cells: [['U.1','a'],['U.2','a'],['U.4','a'],['U.5','a'],['U.7','a'],['U.8','a'],['F.3','a']] },
-    { step: 5, name: '角朝向 · 情况六', alg: lgJoin(LG_ALG.f6, "U'", LG_ALG.f6), tw: [1, -1, -1, 1],
+    { step: 5, name: '角朝向 · 情况四', alg: lgJoin(LG_ALG.f6, "U'", LG_ALG.f6), tw: [1, -1, -1, 1],
       hint: '顶面三个角朝上：公式六 + U\' + 公式六',
       cells: [['U.2','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.8','a'],['F.1','a'],['F.3','a'],['R.3','a']] },
-    { step: 5, name: '角朝向 · 情况七', alg: lgJoin(LG_ALG.f7, 'U2', LG_ALG.f6), tw: [1, -1, 0, 0],
+    { step: 5, name: '角朝向 · 情况五', alg: lgJoin(LG_ALG.f7, LG_ALG.f6), tw: [1, 0, 0, -1],
+      hint: '顶面两个角朝上（另一斜向）：公式七 + 公式六',
+      cells: [['U.1','a'],['U.2','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.7','a'],['U.8','a'],['F.3','a']] },
+    { step: 5, name: '角朝向 · 情况六', alg: lgJoin(LG_ALG.f7, 'U2', LG_ALG.f6), tw: [1, -1, 0, 0],
       hint: '顶面三个角朝上（另一种）：公式七 + U2 + 公式六',
       cells: [['U.1','a'],['U.2','a'],['U.3','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.8','a'],['F.1','a'],['F.3','a']] },
+    { step: 5, name: '角朝向 · 情况七', alg: lgJoin(LG_ALG.f6, LG_ALG.f7), tw: [-1, 0, 1, 0],
+      hint: '只缺一个角：公式六 + 公式七',
+      cells: [['U.2','a'],['U.3','a'],['U.4','a'],['U.5','a'],['U.6','a'],['U.7','a'],['U.8','a'],['R.1','a']] },
     { step: 6, name: '角归位 · 情况一', alg: LG_ALG.f8,
       hint: '前右上、前左上两块侧面同色 → 公式八',
       cells: [['F.1','c'],['F.3','c']] },
@@ -920,7 +1008,7 @@
       if (fk !== 'py' && fk !== 'pz' && fk !== 'px') continue;   // 只画可见三面
       const p = lgCellPos(face, Math.floor(idx / 3), idx % 3);
       const rc = lgAppRC(fk, p);
-      if (rc) d[fk][rc[0]][rc[1]] = LG_HEX[cell[1]];
+      if (rc) d[fk][rc[0]][rc[1]] = LG_HEX[cell[1]] || HEX_LETTER[cell[1]] || cell[1];
     }
     return d;
   }
@@ -976,7 +1064,7 @@
           if (LG_FACE_OF[fc] !== f) continue;
           for (let rr = 0; rr < 3; rr++) for (let cc = 0; cc < 3; cc++) {
             const q = lgCellPos(fc, rr, cc);
-            if (q[0] === p[0] && q[1] === p[1] && q[2] === p[2]) label = fc.toLowerCase() + '.' + (rr * 3 + cc + 1);
+            if (q[0] === p[0] && q[1] === p[1] && q[2] === p[2]) label = fc + '.' + (rr * 3 + cc + 1);
           }
         }
         if (label) LG_TAGS[appCode] = label;
@@ -1292,8 +1380,7 @@
   /* 返回需要先转几次 U 才能命中（0~3），-1 = 不匹配 */
   function findAlign(c) {
     if (!stageReady(c.step, currentStage())) return -1;
-    /* ⑤ 顶面角朝向：只比「四个角怎么扭转」，角块怎么排、整体怎么转都不影响 */
-    if (c.tw && c.tw.length === 4) {
+    if (c.tw && c.tw.length === 4) {          // 角翻转：保留扭转签名
       if (!crossOriented()) return -1;
       const live = twistSigLive();
       for (let k = 0; k < 4; k++) {
@@ -1303,9 +1390,32 @@
       }
       return -1;
     }
-    for (let k = 0; k < 4; k++) if (caseMatches(c, k)) return k;
+    const cells = Array.isArray(c.cells) ? c.cells : null;
+    if (!cells) return -1;
+    for (let k = 0; k < 4; k++) {
+      let ok = true;
+      for (const cell of cells) if (!lgCellOK(cell, k)) { ok = false; break; }
+      if (ok) return k;
+    }
     return -1;
   }
+  
+  
+    function currentSpeedStage() {
+    if (isSolvedNow()) return null;
+    if (!bottomCrossOK()) return 'CROSS';
+    if (!twoLayersOK()) return 'F2L';
+    if (!topFaceOK()) return 'OLL';
+    return 'PLL';
+  }
+
+  function findAlignSpeed(c) {
+    if (c.step !== currentSpeedStage()) return -1;
+    for (let k = 0; k < 4; k++) if (speedMatch(c, k)) return k;
+    return -1;
+  }
+  
+  
 
   function caseMatchesOld(c) {
     const live = buildSymbols(c.order.map(function (code) {
@@ -1510,12 +1620,16 @@
   }
 
   function baHTML(c, map) {
-    const codes = (activeSet === 'layer') ? lgTags() : null;
-    const before = '<div class="ba-col"><span class="ba-lbl">用前</span>' + isoCube(remapDiagram(c.d, map), 50, null, undefined, undefined, codes, c.bars) + '</div>';
-    if (!c.d2) return before;
+    const codes = lgTags();
+    const beforeD = Array.isArray(c.cells) ? lgDiagramCells(c.cells) : c.d;
+    const before = '<div class="ba-col"><span class="ba-lbl">用前</span>' +
+      isoCube(remapDiagram(beforeD, map), 50, null, undefined, undefined, codes, c.bars) + '</div>';
+    const afterD = c.cells2 ? lgDiagramCells(c.cells2) : c.d2;
+    if (!afterD) return before;
     return before +
       '<div class="ba-arrow">→</div>' +
-      '<div class="ba-col"><span class="ba-lbl">用后</span>' + isoCube(remapDiagram(c.d2, map), 50, null, undefined, undefined, codes) + '</div>';
+      '<div class="ba-col"><span class="ba-lbl">用后</span>' +
+      isoCube(remapDiagram(afterD, map), 50, null, undefined, undefined, codes) + '</div>';
   }
 
   function buildCase(c) {
@@ -1573,33 +1687,23 @@
     }
   }
 
-  for (const c of GALLERY) {
-    const list = caseList(c.d);
-    c.order = list.map(function (it) { return it.code; });
-    c.rule = buildSymbols(list);
-    c.cells = {};
-    for (const it of list) c.cells[it.code] = it.color;
-  }
+
 
   /* 命中时：图例里的颜色 → 当前魔方对应位置的颜色 */
-  function liveColorMap(c) {
+  function liveColorMap(c, k) {
     const map = {};
-    if (c.cells && !c.order) {                       // 层先法卡片
-      for (const cell of c.cells) {
-        const face = cell[0][0], idx = Number(cell[0].slice(2)) - 1;
-        let p = lgCellPos(face, Math.floor(idx / 3), idx % 3);
-        let fk = LG_FACE_OF[face];
-        if (idx !== 4) { p = lgRotV(p, -k0); fk = vecKey(lgRotV(LG_FACE_VEC[face], -k0)); }
-        const cu = findCubieStd(p[0], p[1], p[2]);                          // ← 改
-        const key = orientFace(fk);                                         // ← 改
-        const to = cu && cu.colors[key] ? HEX_LETTER[cu.colors[key]] : null; // ← 改
-        if (to) map[LG_HEX[cell[1]]] = to;
-      }
-      return map;
-    }
-    for (const code of c.order) {
-      const from = c.cells[code], to = liveColorAt(code);                   // liveColorAt 已改
-      if (from && to) map[from] = to;
+    const kk = k || 0;
+    const cells = Array.isArray(c.cells) ? c.cells : null;
+    if (!cells) return map;
+    for (const cell of cells) {
+      const face = cell[0][0], idx = Number(cell[0].slice(2)) - 1;
+      let p  = lgCellPos(face, Math.floor(idx / 3), idx % 3);
+      let fk = LG_FACE_OF[face];
+      if (idx !== 4) { p = lgRotV(p, -kk); fk = vecKey(lgRotV(LG_FACE_VEC[face], -kk)); }
+      const cu  = findCubieStd(p[0], p[1], p[2]);
+      const key = orientFace(fk);
+      const to  = cu && cu.colors[key] ? HEX_LETTER[cu.colors[key]] : null;
+      if (to) map[LG_HEX[cell[1]]] = to;
     }
     return map;
   }
@@ -1673,15 +1777,15 @@
       const list = activeGallery();
       const hits = [];
       // ★ 获取当前状态所处的阶段，只遍历同一阶段的公式
-      const stage = currentStage(); 
+      const stage = activeSet === 'speed' ? currentSpeedStage() : currentStage();
       
       for (const c of list) {
         if (c.noMatch) continue;
-        // 只有相同阶段的卡片才去深比对（假设卡片数据中有 step 属性）
-        if (activeSet === 'layer' && c.step !== stage) continue;
-        if (activeSet === 'pro' && c.step !== stage) continue; 
+        if (activeSet !== 'speed' && c.step !== stage) continue;
         
-        const k = activeSet === 'layer' ? findAlignLayer(c) : findAlign(c);
+        const k = activeSet === 'layer' ? findAlignLayer(c)
+                : activeSet === 'speed' ? findAlignSpeed(c)
+                : findAlign(c);
         if (k >= 0) hits.push({ c: c, k: k });
       }
       // ... 后续渲染不变
@@ -1691,24 +1795,24 @@
       }
       const solved = isSolvedNow();
       const cards = galBody.querySelectorAll('.case');
-      
-      // ★ 新增：利用 Map 提升查找效率 (O(1))
+
+      // 命中表：卡片 → 需要先转几次 U
       const hitMap = new Map();
       hits.forEach(h => hitMap.set(h.c, h.k));
 
       for (const card of cards) {
         const c = list[Number(card.dataset.i)];
-        
-        // ★ 使用 Map 判断是否命中
+        const hitK = hitMap.get(c) || 0;
         const hit = !solved && hitMap.has(c);
-        
-        if (hit === card.classList.contains('hit')) continue;
+
+        const kStr = String(hitK);
+        if (hit === card.classList.contains('hit') && card.dataset.k === kStr) continue;
+        card.dataset.k = kStr;
         card.classList.toggle('hit', hit);
-        
-        // ★ 直接从 Map 取出 k 值
-        k0 = hit ? hitMap.get(c) : 0; 
-        
-        card.querySelector('.ba').innerHTML = baHTML(c, hit ? liveColorMap(c) : null);
+
+        k0 = hitK;   // 兼容旧全局 k0（保留这一行，本步可独立生效）
+        const map = (hit && activeSet !== 'speed') ? liveColorMap(c, hitK) : null;
+        card.querySelector('.ba').innerHTML = baHTML(c, map);
       }
       if (solved) {
         galHitEl.className = 'gal-hit none';
@@ -1970,17 +2074,26 @@
   }
 
   let activeSet = 'layer';
-  function activeGallery() { return activeSet === 'layer' ? LAYER_GALLERY : GALLERY; }
+  function activeGallery() {
+    return activeSet === 'layer' ? LAYER_GALLERY
+         : activeSet === 'speed' ? SPEED_GALLERY
+         : GALLERY;
+  }
   const GAL_NOTE = {
     layer: '黄底白顶（白顶黄底同构）。X = 顺时针 90°，X\' = 逆时针，X2 = 180°。每格代号 u.1~u.9 / f.1~f.9 / r.1~r.9（左→右、上→下）。中心色记符号：<b>a</b>=顶心、<b>b</b>=前心、<b>c</b>=右心、<b>d</b>=左心、<b>e</b>=后心。卡片只比对有颜色的格子，<b>灰格跳过</b>；同时命中多条时，<b>比中格子多的优先</b>。卡片变绿＝现在就做这条。',
-    pro: '黄底白顶。X = 顺时针 90°，X\' = 逆时针，X2 = 180°。每格有代号 U.1~U.9 / F.1~F.9 / R.1~R.9（左上→右下）。图例先给 U.5 / F.5 / R.5 三个中心格的色记 <b>a b c</b>，剩下的颜色按出现顺序记 <b>d e f</b>；当前魔方按同样规则赋值后逐格比对，<b>灰格跳过</b>。卡片变绿＝现在就该用这条。'
+    pro: '黄底白顶。X = 顺时针 90°，X\' = 逆时针，X2 = 180°。每格有代号 U.1~U.9 / F.1~F.9 / R.1~R.9（左上→右下）。图例先给 U.5 / F.5 / R.5 三个中心格的色记 <b>a b c</b>，剩下的颜色按出现顺序记 <b>d e f</b>；当前魔方按同样规则赋值后逐格比对，<b>灰格跳过</b>。卡片变绿＝现在就该用这条。',
+    speed: 'CFOP 速拧。卡片只显示「用前」状态的关键格（绝对色），命中后自动高亮。公式走标准 WCA 记号，支持 U/D/L/R/F/B/M/E/S 与 x/y/z 转体。'
   };
   function renderGallery() {
     galBody.innerHTML = '';
     const listAll = activeGallery();
-    const titles = activeSet === 'layer' ? LG_SEC_TITLE : SEC_TITLE;
-    const notes = activeSet === 'layer' ? LG_SEC_NOTE : SEC_NOTE;
-    const steps = [1, 2, 3, 4, 5, 6, 7];
+    const titles = activeSet === 'layer' ? LG_SEC_TITLE
+                 : activeSet === 'speed' ? SPEED_SEC_TITLE
+                 : SEC_TITLE;
+    const notes = activeSet === 'layer' ? LG_SEC_NOTE
+                : activeSet === 'speed' ? SPEED_SEC_NOTE
+                : SEC_NOTE;
+    const steps = activeSet === 'speed' ? ['F2L', 'OLL', 'PLL'] : [1, 2, 3, 4, 5, 6, 7];
     // ★ 将原本固定的说明面板隐藏，将其作为滚动内容的一部分插入到 galBody 顶部
     const galNote = document.getElementById('galNote');
     if (galNote) galNote.style.display = 'none'; 
@@ -2009,12 +2122,20 @@
         const box = document.createElement('div');
         box.className = 'cases';
         box.style.marginTop = notes[step] ? '8px' : '0';
-        for (const c of list) {
+      for (const c of list) {
+        if (activeSet === 'pro') {
+          if (c.d && !Array.isArray(c.cells))   c.cells  = lgFromDiagram(c.d);
+          if (c.d2 && !Array.isArray(c.cells2)) c.cells2 = lgFromDiagram(c.d2);
+        } else if (activeSet === 'layer') {
           if (!c.d) c.d = lgDiagram(c);
-          else if (!c.cells) c.cells = lgFromDiagram(c.d);
-          if (!c.d2 && LG_AFTER[c.step]) c.d2 = lgDiagramCells(LG_AFTER[c.step]);
-          box.appendChild(buildCase(c));
+          if (!c.cells2 && LG_AFTER[c.step]) {
+            c.d2     = lgDiagramCells(LG_AFTER[c.step]);
+            c.cells2 = LG_AFTER[c.step];
+          }
         }
+        // speed：cells 已在启动时 deriveCells 生成，无需处理
+        box.appendChild(buildCase(c));
+      }
         sec.appendChild(box);
       }
       galBody.appendChild(sec);
@@ -2027,12 +2148,14 @@
     activeSet = name;
     document.getElementById('setLayer').classList.toggle('on', name === 'layer');
     document.getElementById('setPro').classList.toggle('on', name === 'pro');
+    document.getElementById('setSpeed').classList.toggle('on', name === 'speed');
     autoArmed = true;
     renderGallery();
     scheduleMatch(0);
   }
   document.getElementById('setLayer').addEventListener('click', function () { setFormulaSet('layer'); });
   document.getElementById('setPro').addEventListener('click', function () { setFormulaSet('pro'); });
+  document.getElementById('setSpeed').addEventListener('click', function () { setFormulaSet('speed'); });
 
   function openGallery() {
     exitSlow();
@@ -2123,6 +2246,99 @@
     }
     refreshMirrors();
   }
+  
+  
+    /* 同步复位到还原态（不重建 DOM） */
+  function resetCubeSync() {
+    for (const c of cubies) {
+      c.pos = c.home.slice();
+      const [x, y, z] = c.home;
+      const colors = {};
+      for (const f of FACES) {
+        const onSurface =
+          (f.v[0] === 1 && x === 1) || (f.v[0] === -1 && x === -1) ||
+          (f.v[1] === 1 && y === 1) || (f.v[1] === -1 && y === -1) ||
+          (f.v[2] === 1 && z === 1) || (f.v[2] === -1 && z === -1);
+        colors[f.key] = onSurface ? COLORS[f.key] : null;
+      }
+      c.colors = colors;
+      paint(c);
+      c.body.style.transform = translateOf(c.pos);
+    }
+    refreshMirrors();
+  }
+
+  /* 从还原态执行逆公式得到用前，执行正公式得到用后 */
+  function deriveCells(alg, mask, isAfter) {
+    const snap = cubies.map(c => ({ pos: c.pos.slice(), colors: Object.assign({}, c.colors) }));
+    const viewSnap = { x: viewX, y: viewY };
+    try {
+      resetCubeSync();
+      viewX = HOME_X; viewY = HOME_Y;              // 标准朝向下解析
+      const toks = expandAlg(alg.split(' ').filter(Boolean));
+      
+      // 1. 先倒着走一遍，得到用前状态
+      for (let i = toks.length - 1; i >= 0; i--) {
+        const m = parseMove(toks[i]);
+        turnSync(m.axis, m.layer, -m.angle);
+      }
+      
+      // 2. 如果要用后状态，就在用前状态的基础上正着走一遍
+      if (isAfter) {
+        for (const t of toks) {
+          const m = parseMove(t);
+          turnSync(m.axis, m.layer, m.angle);
+        }
+      }
+      
+      // 3. 读出 mask 里的颜色
+      const cells = [];
+      for (const code of mask) {
+        const idx = Number(code.slice(2)) - 1;
+        const face = code[0];
+        const p = lgCellPos(face, Math.floor(idx / 3), idx % 3);
+        const cu = findCubie(p[0], p[1], p[2]);
+        const hex = cu && cu.colors[LG_FACE_OF[face]];
+        if (hex) cells.push([code, HEX_LETTER[hex]]);
+      }
+      return cells;
+    } finally {
+      viewX = viewSnap.x; viewY = viewSnap.y;
+      cubies.forEach((c, i) => {
+        c.pos = snap[i].pos;
+        c.colors = snap[i].colors;
+        paint(c);
+        c.body.style.transform = translateOf(c.pos);
+      });
+      refreshMirrors();
+    }
+  }
+
+  /* 当前该格的颜色（相对标准朝向，支持 U 预转 k 次 + 整体转体归一化） */
+  function liveHexAt(code, k) {
+    const idx = Number(code.slice(2)) - 1;
+    let p = lgCellPos(code[0], Math.floor(idx / 3), idx % 3);
+    let fk = LG_FACE_OF[code[0]];
+    if (idx !== 4) {
+      p = lgRotV(p, -k);
+      fk = vecKey(lgRotV(LG_FACE_VEC[code[0]], -k));
+    }
+    const cu = findCubieStd(p[0], p[1], p[2]);
+    if (!cu) return null;
+    const hex = cu.colors[orientFace(fk)];
+    return hex ? (HEX_LETTER[hex] || null) : null;
+  }
+
+  /* 速拧匹配：绝对色比对（cells 的 cell[1] 是 W/G/R/P/B/Y） */
+  function speedMatch(c, k) {
+    for (const cell of c.cells) {
+      if (liveHexAt(cell[0], k) !== cell[1]) return false;
+    }
+    return true;
+  }
+  
+  
+  
   function turnAnimated(axis, layer, angle, ms, done) {
     const i = AXIS_INDEX[axis];
     const list = cubies.filter(c => c.pos[i] === layer);
@@ -2342,7 +2558,7 @@
     cubeEl.style.transition = 'transform 280ms cubic-bezier(.3,.05,.25,1)';
     mirrorsEl.style.transition = 'transform 280ms cubic-bezier(.3,.05,.25,1)';
     applyView();
-    setTimeout(() => { cubeEl.style.transition = ''; mirrorsEl.style.transition = ''; }, 300);
+    setTimeout(() => { cubeEl.style.transition = '';   mirrorsEl.style.transition = ''; }, 300);
   }
   stageEl.addEventListener('wheel', function (e) {
     if (e.ctrlKey) return;
@@ -2621,6 +2837,16 @@
   buildCube();
   refreshHud();
   applyScheme();
+
+  // 速拧：从公式反推关键格（启动时跑一次）
+  for (const c of SPEED_GALLERY) {
+    c.cells = deriveCells(c.alg, SPEED_MASK[c.step], false);  // 用前
+    c.cells2 = deriveCells(c.alg, SPEED_MASK[c.step], true);  // 用后
+  }
+  
+
+
+  
     // ★ 暴露接口给手势控制模块调用
   window.mofangAPI = {
     pushMove: pushMove,
@@ -2634,6 +2860,7 @@
   window.__gesturePatchApplied = true;
 
   setTimeout(() => {
+
     /* 1. 右下角：按键面板显隐按钮 */
     const kbToggleBtn = document.createElement('button');
     kbToggleBtn.innerHTML = '⌨️ 按键';
