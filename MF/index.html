@@ -2248,71 +2248,77 @@
   }
   
   
-    /* 同步复位到还原态（不重建 DOM） */
-  function resetCubeSync() {
-    for (const c of cubies) {
-      c.pos = c.home.slice();
-      const [x, y, z] = c.home;
-      const colors = {};
-      for (const f of FACES) {
-        const onSurface =
-          (f.v[0] === 1 && x === 1) || (f.v[0] === -1 && x === -1) ||
-          (f.v[1] === 1 && y === 1) || (f.v[1] === -1 && y === -1) ||
-          (f.v[2] === 1 && z === 1) || (f.v[2] === -1 && z === -1);
-        colors[f.key] = onSurface ? COLORS[f.key] : null;
-      }
-      c.colors = colors;
-      paint(c);
-      c.body.style.transform = translateOf(c.pos);
-    }
-    refreshMirrors();
-  }
+
 
   /* 从还原态执行逆公式得到用前，执行正公式得到用后 */
+  /* 用纯数据推导，不操作 DOM，速度极快 */
   function deriveCells(alg, mask, isAfter) {
-    const snap = cubies.map(c => ({ pos: c.pos.slice(), colors: Object.assign({}, c.colors) }));
     const viewSnap = { x: viewX, y: viewY };
+    viewX = HOME_X; viewY = HOME_Y; // 确保 parseMove 使用标准基准
+    
     try {
-      resetCubeSync();
-      viewX = HOME_X; viewY = HOME_Y;              // 标准朝向下解析
+      // 1. 初始化纯数据的 26 个块
+      const virtualCubies = [];
+      for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) {
+        if (x === 0 && y === 0 && z === 0) continue;
+        const colors = {};
+        for (const f of FACES) {
+          const onSurface =
+            (f.v[0] === 1 && x === 1) || (f.v[0] === -1 && x === -1) ||
+            (f.v[1] === 1 && y === 1) || (f.v[1] === -1 && y === -1) ||
+            (f.v[2] === 1 && z === 1) || (f.v[2] === -1 && z === -1);
+          colors[f.key] = onSurface ? COLORS[f.key] : null;
+        }
+        virtualCubies.push({ pos: [x, y, z], colors });
+      }
+
+      // 2. 纯数据旋转函数
+      function vTurn(axis, layer, angle) {
+        const M = rotMatrix(axis, angle);
+        const i = AXIS_INDEX[axis];
+        for (const c of virtualCubies) {
+          if (c.pos[i] !== layer) continue;
+          c.pos = applyMatrix(M, c.pos);
+          const next = {};
+          for (const f of FACES) next[vecKey(applyMatrix(M, f.v))] = c.colors[f.key];
+          c.colors = next;
+        }
+      }
+
+      // 3. 执行公式
       const toks = expandAlg(alg.split(' ').filter(Boolean));
       
-      // 1. 先倒着走一遍，得到用前状态
+      // 倒序执行逆公式（用前）
       for (let i = toks.length - 1; i >= 0; i--) {
         const m = parseMove(toks[i]);
-        turnSync(m.axis, m.layer, -m.angle);
+        vTurn(m.axis, m.layer, -m.angle);
       }
       
-      // 2. 如果要用后状态，就在用前状态的基础上正着走一遍
+      // 正序执行（用后）
       if (isAfter) {
         for (const t of toks) {
           const m = parseMove(t);
-          turnSync(m.axis, m.layer, m.angle);
+          vTurn(m.axis, m.layer, m.angle);
         }
       }
-      
-      // 3. 读出 mask 里的颜色
+
+      // 4. 读取颜色
       const cells = [];
       for (const code of mask) {
         const idx = Number(code.slice(2)) - 1;
         const face = code[0];
         const p = lgCellPos(face, Math.floor(idx / 3), idx % 3);
-        const cu = findCubie(p[0], p[1], p[2]);
+        
+        const cu = virtualCubies.find(c => c.pos[0] === p[0] && c.pos[1] === p[1] && c.pos[2] === p[2]);
         const hex = cu && cu.colors[LG_FACE_OF[face]];
         if (hex) cells.push([code, HEX_LETTER[hex]]);
       }
       return cells;
     } finally {
       viewX = viewSnap.x; viewY = viewSnap.y;
-      cubies.forEach((c, i) => {
-        c.pos = snap[i].pos;
-        c.colors = snap[i].colors;
-        paint(c);
-        c.body.style.transform = translateOf(c.pos);
-      });
-      refreshMirrors();
     }
   }
+      
 
   /* 当前该格的颜色（相对标准朝向，支持 U 预转 k 次 + 整体转体归一化） */
   function liveHexAt(code, k) {
