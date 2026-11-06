@@ -2016,6 +2016,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Teach;
     const panel = document.getElementById('guidePanel');
     if (panel && !panel.classList.contains('hidden')) { closeGuidance(); return; }
     if (solved) return;
+    // 唯一解题目里，先确认盘面没有填错的数字，避免基于错误盘面推理
+    if (!multiSolve) {
+      for (let i = 0; i < 81; i++) {
+        if (values[i] && values[i] !== solution[i]) {
+          showGuideMessage('盘面里有填错的数字（显示为红色），先改正再用教学。');
+          return;
+        }
+      }
+    }
     const g = Teach.startGuidance(boardStateFromValues(), 'concise');
     if (!g) {
       showGuideMessage('当前盘面没有找到可讲解的一步（唯一候选 / 隐性唯一 / 区块排除）。');
