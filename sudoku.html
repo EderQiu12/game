@@ -144,6 +144,28 @@
     .controls{gap:6px}
     select,button{padding:7px 10px;font-size:13px}
   }
+
+  /* ---------- 教学引导 ---------- */
+  .guide-overlay{position:absolute;left:2px;top:2px;width:calc(100% - 4px);height:calc(100% - 4px);pointer-events:none;z-index:3}
+  .guide-overlay.hidden{display:none}
+  .anchor-unit{fill:rgba(59,130,246,.10);stroke:#3b82f6;stroke-width:2}
+  .anchor-cell{fill:rgba(250,204,21,.20);stroke:#eab308;stroke-width:2.5}
+  .anchor-cand{fill:rgba(239,68,68,.12);stroke:#ef4444;stroke-width:2}
+  .anchor-link{stroke:#8b5cf6;stroke-width:2;stroke-linecap:round}
+  .guide-panel{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px 14px;box-shadow:0 6px 20px rgba(15,23,42,.06)}
+  .guide-panel.hidden{display:none}
+  .guide-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .guide-phase{font-size:12px;color:#2563eb;font-weight:600}
+  .guide-close{border:none;background:transparent;font-size:20px;line-height:1;padding:2px 6px;color:#94a3b8;cursor:pointer}
+  .guide-close:hover{background:transparent;color:#475569}
+  .guide-text{margin:8px 0 6px;font-size:14px;line-height:1.6;color:#0f172a}
+  .guide-steps{margin:6px 0 4px;padding-left:18px;font-size:12.5px;line-height:1.55;color:#94a3b8}
+  .guide-steps.hidden{display:none}
+  .guide-steps li{margin:3px 0}
+  .guide-steps li.active{color:#0f172a;font-weight:600}
+  .guide-steps li.done{color:#64748b}
+  .guide-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+  .guide-cascade{margin:6px 0 0;font-size:12.5px;color:#059669}
 </style>
 </head>
 <body>
@@ -189,17 +211,33 @@
     <button id="cancelTrialBtn" class="hidden">放弃</button>
     <button id="assistBtn">辅助</button>
     <button id="hintBtn">提示</button>
+    <button id="teachBtn">教学</button>
     <button id="notesBtn">笔记</button>
     <button id="infoBtn">说明</button>
   </div>
 
   <div class="board-wrap">
     <div id="board" class="board"></div>
+    <svg id="guideOverlay" class="guide-overlay hidden" aria-hidden="true"></svg>
     <div id="overlay" class="overlay hidden"></div>
   </div>
 
+  <section id="guidePanel" class="guide-panel hidden" aria-live="polite">
+    <div class="guide-head">
+      <span class="guide-phase" id="guidePhase">线索</span>
+      <button class="guide-close" id="guideClose" aria-label="关闭教学">×</button>
+    </div>
+    <p class="guide-text" id="guideText"></p>
+    <ol class="guide-steps hidden" id="guideSteps"></ol>
+    <div class="guide-actions">
+      <button id="guideNext" class="primary">下一条线索</button>
+      <button id="guideApply" class="primary hidden">执行这一步</button>
+    </div>
+    <p class="guide-cascade" id="guideCascade"></p>
+  </section>
+
   <div id="pad" class="pad"></div>
-  <p class="tip">点格子后按 1–9 输入 · “+” 临时笔记 · Backspace 撤销 · Delete 删除（<b>假设中按 Delete = 放弃</b>）· “-” 打开说明（笔记模式下清空本格候选；说明弹窗中再按 - 关闭）· <b>*</b> 切换辅助 · <b>n</b> 新题<br>
+  <p class="tip">点格子后按 1–9 输入 · “+” 临时笔记 · Backspace 撤销 · Delete 删除（<b>假设中按 Delete = 放弃</b>）· “-” 打开说明（笔记模式下清空本格候选；说明弹窗中再按 - 关闭）· <b>*</b> 切换辅助 · <b>教学</b> 分层提示与推导 · <b>n</b> 新题<br>
     按 <b>/</b> 或 <b>回车</b> 开始假设，假设中再按一次弹框确认 · 弹框中 <b>回车</b> 确认 · <b>Esc / 小键盘点</b> 取消弹框 · 放弃假设请点“放弃”按钮或按 <b>-</b> / <b>Delete</b><br>
     <b>辅助</b> 开启后，当前格不可填的数字会置灰，只保留可填数字高亮<br>
     <b>初代</b> 随机挖空，线索自选，可能多解（填满任意合法解即通关）· <b>初代 · 唯一解</b> 同样挖空但保证唯一解，难度随线索数平滑变化 ·
@@ -970,6 +1008,7 @@
 
   function inputDigit(d){
     if (solved || selected < 0) return;
+    closeGuidance();
     const i = selected;
     if (puzzle[i]) return;
 
@@ -1005,6 +1044,7 @@
 
   function hint(){
     if (solved) return;
+    closeGuidance();
     const empties = [];
     for (let i = 0; i < 81; i++) if (values[i] !== solution[i]) empties.push(i);
     if (!empties.length) return;
@@ -1020,6 +1060,7 @@
 
   function undo(){
     if (solved || !history.length) return;
+    closeGuidance();
     const h = history.pop();
     values[h.i] = h.value;
     notes[h.i] = new Set(h.notes);
@@ -1028,6 +1069,7 @@
   }
 
   function win(){
+    closeGuidance();
     closeTrialModal();
     if (trialSnapshot){ trialSnapshot = null; trialCells.clear(); updateTrialUI(); }
     solved = true;
@@ -1052,6 +1094,7 @@
   }
 
   function startTrial(){
+    closeGuidance();
     if (solved || trialSnapshot) return;
     trialSnapshot = {
       values: Uint8Array.from(values),
@@ -1066,6 +1109,7 @@
   }
 
   function cancelTrial(){
+    closeGuidance();
     if (!trialSnapshot) return;
     const s = trialSnapshot;
     values = s.values;
@@ -1081,6 +1125,7 @@
   }
 
   function confirmTrial(){
+    closeGuidance();
     if (!trialSnapshot) return;
     trialSnapshot = null;
     trialCells.clear();
@@ -1113,6 +1158,7 @@
   }
 
   function startCustom(){
+    closeGuidance();
     const chars = [...customText.value].filter(ch => /[0-9.]/.test(ch));
     if (chars.length !== 81){
       customErr.textContent = '需要 81 个字符，当前 ' + chars.length + ' 个';
@@ -1201,6 +1247,7 @@
   }
 
   function newGame(){
+    closeGuidance();
     if (generating) return;
     closeTrialModal();
     generating = true;
@@ -1548,6 +1595,570 @@
     newGame();
   });
 
+
+/* ================= sudoku-teaching-kit 嵌入 ================= */
+/* ===== sudoku-teaching-kit core (vanilla JS port) ===== */
+const Teach = (() => {
+  const DIGITS = [1,2,3,4,5,6,7,8,9];
+  const idx = (r, c) => r * 9 + c;
+  const boxIndex = (r, c) => ((r / 3) | 0) * 3 + ((c / 3) | 0);
+
+  function unitCells(u) {
+    const out = [];
+    if (u.type === 'row') for (let c = 0; c < 9; c++) out.push({ r: u.index, c });
+    else if (u.type === 'col') for (let r = 0; r < 9; r++) out.push({ r, c: u.index });
+    else {
+      const br = ((u.index / 3) | 0) * 3, bc = (u.index % 3) * 3;
+      for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++) out.push({ r: br + dr, c: bc + dc });
+    }
+    return out;
+  }
+
+  const cellText = x => `第${x.r + 1}行第${x.c + 1}列`;
+  const shortCell = x => `r${x.r + 1}c${x.c + 1}`;
+  const unitText = u => u.type === 'row' ? `第${u.index + 1}行` : u.type === 'col' ? `第${u.index + 1}列` : `第${u.index + 1}宫`;
+  const cellsText = xs => xs.map(cellText).join('、');
+  const elimsText = es => es.map(e => `${shortCell(e.cell)}(数字${e.digits.join('/')})`).join('、');
+
+  class BoardState {
+    constructor(grid) {
+      this.grid = grid.slice();
+      this.cands = this.computeCandidates();
+    }
+    get(r, c) { return this.grid[idx(r, c)]; }
+    candidatesAt(r, c) {
+      if (this.grid[idx(r, c)] != null) return new Set();
+      return new Set(this.cands[idx(r, c)]);
+    }
+    clone() { return new BoardState(this.grid); }
+    set(r, c, d) {
+      const next = this.clone();
+      next.grid[idx(r, c)] = d;
+      next.cands = next.computeCandidates();
+      return next;
+    }
+    applyResult(placements, eliminations) {
+      let next = this.clone();
+      for (const p of placements) next = next.set(p.cell.r, p.cell.c, p.digit);
+      for (const e of eliminations) {
+        if (next.grid[idx(e.cell.r, e.cell.c)] != null) continue;
+        const s = next.cands[idx(e.cell.r, e.cell.c)];
+        for (const d of e.digits) s.delete(d);
+      }
+      return next;
+    }
+    computeCandidates() {
+      const cands = [];
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (this.grid[idx(r, c)] != null) { cands.push(new Set()); continue; }
+          const used = new Set();
+          for (const x of unitCells({ type: 'row', index: r })) { const v = this.grid[idx(x.r, x.c)]; if (v != null) used.add(v); }
+          for (const x of unitCells({ type: 'col', index: c })) { const v = this.grid[idx(x.r, x.c)]; if (v != null) used.add(v); }
+          for (const x of unitCells({ type: 'box', index: boxIndex(r, c) })) { const v = this.grid[idx(x.r, x.c)]; if (v != null) used.add(v); }
+          cands.push(new Set(DIGITS.filter(d => !used.has(d))));
+        }
+      }
+      return cands;
+    }
+  }
+
+  /* ---------- Naked Single ---------- */
+  function findNakedSingles(state) {
+    const out = [];
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+      if (state.grid[idx(r, c)] != null) continue;
+      const cand = state.candidatesAt(r, c);
+      if (cand.size === 1) {
+        const cell = { r, c }, digit = [...cand][0];
+        out.push({
+          technique: 'naked-single', level: 1,
+          patternCells: [cell],
+          placements: [{ cell, digit }],
+          eliminations: [],
+          data: { cell, digit }
+        });
+      }
+    }
+    return out;
+  }
+  function nakedClues(r) {
+    const { cell, digit } = r.data;
+    const units = [
+      { type: 'row', index: cell.r },
+      { type: 'col', index: cell.c },
+      { type: 'box', index: boxIndex(cell.r, cell.c) }
+    ];
+    return [
+      { level: 1, text: '先找一找：有没有哪一格，已经只剩一个数字可以填了？', anchors: {}, focus: { cells: [cell], units: [] } },
+      { level: 2, text: `把注意力放到 ${cellText(cell)}。`, anchors: { cells: [cell] }, focus: { cells: [cell], units: [] } },
+      {
+        level: 3,
+        text: `${cellText(cell)} 所在的行、列、宫，已经出现了其他 8 个数字。`,
+        anchors: { cells: [cell], units },
+        focus: { cells: [cell], units }
+      },
+      {
+        level: 4,
+        text: `所以这一格只能填 ${digit}。`,
+        anchors: { cells: [cell], candidates: [{ cell, digits: [digit] }] },
+        focus: { cells: [cell], units }
+      }
+    ];
+  }
+  function nakedReasoning(r, mode) {
+    const { cell, digit } = r.data;
+    const units = [
+      { type: 'row', index: cell.r },
+      { type: 'col', index: cell.c },
+      { type: 'box', index: boxIndex(cell.r, cell.c) }
+    ];
+    const p1 = {
+      id: 'p1', kind: 'premise',
+      text: `${cellText(cell)} 的候选数只剩下 ${digit}。`,
+      anchors: { cells: [cell], candidates: [{ cell, digits: [digit] }] }
+    };
+    const p2 = {
+      id: 'p2', kind: 'premise',
+      text: `它所在的行、列、宫已经占用了其余 8 个数字。`,
+      anchors: { cells: [cell], units }
+    };
+    const c1 = {
+      id: 'c1', kind: 'conclusion',
+      text: `因此 ${cellText(cell)} 填 ${digit}。`,
+      anchors: { cells: [cell], candidates: [{ cell, digits: [digit] }] },
+      dependsOn: ['p1', 'p2']
+    };
+    return {
+      technique: 'naked-single',
+      steps: mode === 'concise' ? [p1, c1] : [p1, p2, c1],
+      conclusion: { placements: r.placements, eliminations: [], cascadedPlacements: [] }
+    };
+  }
+
+  /* ---------- Hidden Single ---------- */
+  function findHiddenSingles(state) {
+    const out = [];
+    const units = [];
+    for (let i = 0; i < 9; i++) {
+      units.push({ type: 'row', index: i });
+      units.push({ type: 'col', index: i });
+      units.push({ type: 'box', index: i });
+    }
+    for (const u of units) {
+      const cells = unitCells(u);
+      for (const d of DIGITS) {
+        const places = cells.filter(x => state.candidatesAt(x.r, x.c).has(d));
+        if (places.length === 1) {
+          const cell = places[0];
+          out.push({
+            technique: 'hidden-single', level: 1,
+            patternCells: [cell],
+            placements: [{ cell, digit: d }],
+            eliminations: [],
+            data: { cell, digit: d, unit: u }
+          });
+        }
+      }
+    }
+    return out;
+  }
+  function hiddenClues(r) {
+    const { cell, digit, unit } = r.data;
+    return [
+      { level: 1, text: '换个数看：某个数字在一个单元里，是不是只剩一个位置了？', anchors: {}, focus: { cells: [cell], units: [unit] } },
+      { level: 2, text: `看 ${unitText(unit)}。`, anchors: { units: [unit] }, focus: { cells: [cell], units: [unit] } },
+      {
+        level: 3,
+        text: `数字 ${digit} 在 ${unitText(unit)} 里，只能放在 ${cellText(cell)}。`,
+        anchors: { units: [unit], cells: [cell], candidates: [{ cell, digits: [digit] }] },
+        focus: { cells: [cell], units: [unit] }
+      },
+      {
+        level: 4,
+        text: `所以 ${cellText(cell)} 填 ${digit}。`,
+        anchors: { cells: [cell], candidates: [{ cell, digits: [digit] }] },
+        focus: { cells: [cell], units: [unit] }
+      }
+    ];
+  }
+  function hiddenReasoning(r, mode) {
+    const { cell, digit, unit } = r.data;
+    const p1 = {
+      id: 'p1', kind: 'premise',
+      text: `在 ${unitText(unit)} 里，数字 ${digit} 只剩 ${cellText(cell)} 一个位置。`,
+      anchors: { units: [unit], cells: [cell], candidates: [{ cell, digits: [digit] }] }
+    };
+    const p2 = {
+      id: 'p2', kind: 'premise',
+      text: `${unitText(unit)} 里必须出现数字 ${digit}。`,
+      anchors: { units: [unit] }
+    };
+    const c1 = {
+      id: 'c1', kind: 'conclusion',
+      text: `因此 ${cellText(cell)} 填 ${digit}。`,
+      anchors: { cells: [cell], candidates: [{ cell, digits: [digit] }] },
+      dependsOn: ['p1', 'p2']
+    };
+    return {
+      technique: 'hidden-single',
+      steps: mode === 'concise' ? [p1, c1] : [p1, p2, c1],
+      conclusion: { placements: r.placements, eliminations: [], cascadedPlacements: [] }
+    };
+  }
+
+  /* ---------- Pointing ---------- */
+  function findPointing(state) {
+    const results = [];
+    for (let b = 0; b < 9; b++) {
+      const box = { type: 'box', index: b };
+      const cells = unitCells(box);
+      for (const d of DIGITS) {
+        const places = cells.filter(x => state.candidatesAt(x.r, x.c).has(d));
+        if (places.length < 2 || places.length > 3) continue;
+        const sameRow = places.every(p => p.r === places[0].r);
+        const sameCol = places.every(p => p.c === places[0].c);
+        if (!sameRow && !sameCol) continue;
+        const line = sameRow ? { type: 'row', index: places[0].r } : { type: 'col', index: places[0].c };
+        const elimTargets = unitCells(line)
+          .filter(x => boxIndex(x.r, x.c) !== b)
+          .filter(x => state.candidatesAt(x.r, x.c).has(d));
+        if (!elimTargets.length) continue;
+        results.push({
+          technique: 'pointing', level: 2,
+          patternCells: places,
+          placements: [],
+          eliminations: elimTargets.map(x => ({ cell: x, digits: [d] })),
+          data: { digit: d, box, line, patternCells: places, elimTargets }
+        });
+      }
+    }
+    return results.sort((a, b) => b.eliminations.length - a.eliminations.length);
+  }
+  function pointingClues(r) {
+    const { digit, box, line, patternCells, elimTargets } = r.data;
+    return [
+      { level: 1, text: '某个宫里，有一个数字被挤在了一条线上，顺着这条线能排除其他位置。', anchors: {}, focus: { cells: patternCells, units: [box] } },
+      { level: 2, text: `看 ${unitText(box)}。`, anchors: { units: [box], candidates: patternCells.map(c => ({ cell: c, digits: [digit] })) }, focus: { cells: patternCells, units: [box] } },
+      {
+        level: 3,
+        text: `${unitText(box)} 里的数字 ${digit} 只出现在这几个格子，而且它们都在 ${unitText(line)} 上。`,
+        anchors: {
+          cells: patternCells, units: [box, line],
+          candidates: patternCells.map(c => ({ cell: c, digits: [digit] })),
+          links: patternCells.slice(1).map((c, i) => ({ from: patternCells[i], to: c, kind: 'strong' }))
+        },
+        focus: { cells: patternCells, units: [box, line] }
+      },
+      {
+        level: 4,
+        text: `关注数字 ${digit}，以及它在 ${unitText(line)} 上其他可能出现的位置。`,
+        anchors: { candidates: [...patternCells, ...elimTargets].map(c => ({ cell: c, digits: [digit] })), units: [line] },
+        focus: { cells: [...patternCells, ...elimTargets], units: [line] }
+      }
+    ];
+  }
+  function pointingReasoning(r, mode) {
+    const { digit, box, line, patternCells, elimTargets } = r.data;
+    const p1 = {
+      id: 'p1', kind: 'premise',
+      text: `${unitText(box)} 内，数字 ${digit} 只可能出现在 ${cellsText(patternCells)}。`,
+      anchors: { units: [box], candidates: patternCells.map(c => ({ cell: c, digits: [digit] })) }
+    };
+    const p2 = {
+      id: 'p2', kind: 'premise',
+      text: `这几个格子都在 ${unitText(line)} 上。`,
+      anchors: { units: [line], links: patternCells.slice(1).map((c, i) => ({ from: patternCells[i], to: c, kind: 'strong' })) }
+    };
+    const p3 = {
+      id: 'p3', kind: 'inference',
+      text: `所以数字 ${digit} 在 ${unitText(line)} 上，必定落在 ${unitText(box)} 这一段内。`,
+      anchors: { units: [line, box], cells: patternCells },
+      dependsOn: ['p1', 'p2']
+    };
+    const p4 = {
+      id: 'p4', kind: 'premise',
+      text: `${unitText(line)} 其余位置不可能再是 ${digit}。`,
+      anchors: { units: [line], candidates: elimTargets.map(c => ({ cell: c, digits: [digit] })) }
+    };
+    const c1 = {
+      id: 'c1', kind: 'conclusion',
+      text: `排除 ${elimsText(r.eliminations)} 的候选数 ${digit}。`,
+      anchors: { cells: elimTargets, candidates: elimTargets.map(c => ({ cell: c, digits: [digit] })) },
+      dependsOn: ['p3', 'p4']
+    };
+    return {
+      technique: 'pointing',
+      steps: mode === 'concise' ? [p1, p3, c1] : [p1, p2, p3, p4, c1],
+      conclusion: { placements: [], eliminations: r.eliminations, cascadedPlacements: [] }
+    };
+  }
+
+  const TECHNIQUES = [
+    { id: 'naked-single', level: 1, find: findNakedSingles, buildClue: nakedClues, buildReasoning: nakedReasoning },
+    { id: 'hidden-single', level: 1, find: findHiddenSingles, buildClue: hiddenClues, buildReasoning: hiddenReasoning },
+    { id: 'pointing', level: 2, find: findPointing, buildClue: pointingClues, buildReasoning: pointingReasoning }
+  ];
+
+  function solveStep(state, maxLevel = 5) {
+    for (const def of TECHNIQUES) {
+      if (def.level > maxLevel) break;
+      const found = def.find(state);
+      if (found.length) return found[0];
+    }
+    return null;
+  }
+
+  function attachCascade(result, state) {
+    const byCell = new Map();
+    for (const e of result.eliminations) {
+      const k = `${e.cell.r},${e.cell.c}`;
+      if (!byCell.has(k)) byCell.set(k, { cell: e.cell, digits: new Set() });
+      e.digits.forEach(d => byCell.get(k).digits.add(d));
+    }
+    const out = [];
+    for (const { cell, digits } of byCell.values()) {
+      const cur = state.candidatesAt(cell.r, cell.c);
+      const remain = [...cur].filter(d => !digits.has(d));
+      if (remain.length === 1) out.push({ cell, digit: remain[0] });
+    }
+    return out;
+  }
+
+  function startGuidance(state, mode = 'concise') {
+    const result = solveStep(state);
+    if (!result) return null;
+    const def = TECHNIQUES.find(t => t.id === result.technique);
+    if (!def) return null;
+    const clues = def.buildClue(result);
+    const chain = def.buildReasoning(result, mode);
+    chain.conclusion.cascadedPlacements = attachCascade(result, state);
+    return { result, clues, chain, phase: 'clue', clueIndex: 0, stepIndex: 0 };
+  }
+
+  function nextHint(g) {
+    if (g.phase === 'clue') {
+      if (g.clueIndex < g.clues.length - 1) return { ...g, clueIndex: g.clueIndex + 1 };
+      return { ...g, phase: 'reasoning', stepIndex: 0 };
+    }
+    if (g.phase === 'reasoning') {
+      if (g.stepIndex < g.chain.steps.length - 1) return { ...g, stepIndex: g.stepIndex + 1 };
+      return { ...g, phase: 'done' };
+    }
+    return g;
+  }
+
+  function currentAnchors(g) {
+    if (g.phase === 'clue') return g.clues[g.clueIndex].anchors;
+    if (g.phase === 'reasoning') return g.chain.steps[g.stepIndex].anchors;
+    return {
+      cells: g.result.patternCells,
+      candidates: g.result.eliminations.map(e => ({ cell: e.cell, digits: e.digits }))
+    };
+  }
+
+  function applyGuidance(state, g) {
+    let next = state;
+    if (g.result.placements.length || g.result.eliminations.length) {
+      next = next.applyResult(g.result.placements, g.result.eliminations);
+    }
+    for (const p of g.chain.conclusion.cascadedPlacements) {
+      next = next.set(p.cell.r, p.cell.c, p.digit);
+    }
+    return next;
+  }
+
+  return {
+    BoardState, unitCells, boxIndex,
+    startGuidance, nextHint, currentAnchors, applyGuidance,
+    _findPointing: findPointing
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = Teach;
+
+  /* ================= 教学引导 UI ================= */
+  let guide = null;
+
+  function boardStateFromValues() {
+    const g = new Array(81);
+    for (let i = 0; i < 81; i++) g[i] = values[i] ? values[i] : null;
+    return new Teach.BoardState(g);
+  }
+
+  function closeGuidance() {
+    guide = null;
+    const panel = document.getElementById('guidePanel');
+    if (panel) panel.classList.add('hidden');
+    const svg = document.getElementById('guideOverlay');
+    if (svg) { svg.classList.add('hidden'); svg.innerHTML = ''; }
+    const btn = document.getElementById('teachBtn');
+    if (btn) btn.classList.remove('on');
+  }
+
+  function showGuideMessage(msg) {
+    guide = null;
+    const panel = document.getElementById('guidePanel');
+    const svg = document.getElementById('guideOverlay');
+    if (svg) { svg.classList.add('hidden'); svg.innerHTML = ''; }
+    document.getElementById('teachBtn').classList.add('on');
+    document.getElementById('guidePhase').textContent = '提示';
+    document.getElementById('guideText').textContent = msg;
+    document.getElementById('guideSteps').innerHTML = '';
+    document.getElementById('guideSteps').classList.add('hidden');
+    document.getElementById('guideNext').classList.add('hidden');
+    document.getElementById('guideApply').classList.add('hidden');
+    document.getElementById('guideCascade').textContent = '';
+    panel.classList.remove('hidden');
+  }
+
+  function toggleTeaching() {
+    const panel = document.getElementById('guidePanel');
+    if (panel && !panel.classList.contains('hidden')) { closeGuidance(); return; }
+    if (solved) return;
+    const g = Teach.startGuidance(boardStateFromValues(), 'concise');
+    if (!g) {
+      showGuideMessage('当前盘面没有找到可讲解的一步（唯一候选 / 隐性唯一 / 区块排除）。');
+      return;
+    }
+    guide = g;
+    renderGuidance();
+  }
+
+  function renderGuidance() {
+    const panel = document.getElementById('guidePanel');
+    const svg = document.getElementById('guideOverlay');
+    if (!guide) { if (panel) panel.classList.add('hidden'); if (svg) svg.classList.add('hidden'); return; }
+
+    document.getElementById('teachBtn').classList.add('on');
+    panel.classList.remove('hidden');
+
+    const g = guide;
+    const isClue = g.phase === 'clue';
+    const phaseEl = document.getElementById('guidePhase');
+    const textEl = document.getElementById('guideText');
+    const stepsEl = document.getElementById('guideSteps');
+    const nextBtn = document.getElementById('guideNext');
+    const applyBtn = document.getElementById('guideApply');
+    const cascadeEl = document.getElementById('guideCascade');
+
+    if (isClue) {
+      phaseEl.textContent = `线索 ${g.clueIndex + 1}/${g.clues.length}`;
+      textEl.textContent = g.clues[g.clueIndex].text;
+      stepsEl.innerHTML = '';
+      stepsEl.classList.add('hidden');
+    } else {
+      phaseEl.textContent = g.phase === 'done' ? '结论' : `推导 ${g.stepIndex + 1}/${g.chain.steps.length}`;
+      textEl.textContent = g.chain.steps[g.stepIndex].text;
+      stepsEl.classList.remove('hidden');
+      stepsEl.innerHTML = g.chain.steps.map((s, i) =>
+        `<li class="${i === g.stepIndex ? 'active' : i < g.stepIndex ? 'done' : 'todo'}">${s.text}</li>`
+      ).join('');
+    }
+
+    nextBtn.classList.toggle('hidden', g.phase === 'done');
+    nextBtn.textContent = isClue ? '下一条线索' : '下一句推导';
+    applyBtn.classList.toggle('hidden', g.phase !== 'done');
+
+    if (g.phase === 'done' && g.chain.conclusion.cascadedPlacements.length) {
+      cascadeEl.textContent = '排除后：' + g.chain.conclusion.cascadedPlacements
+        .map(p => `${p.cell.r + 1}行${p.cell.c + 1}列只能是 ${p.digit}`).join('；') + '。';
+    } else if (g.phase === 'done' && g.result.eliminations.length) {
+      cascadeEl.textContent = '执行后会从相关格子的笔记里移除被排除的候选数。';
+    } else {
+      cascadeEl.textContent = '';
+    }
+
+    renderGuideAnchors(Teach.currentAnchors(g));
+  }
+
+  function renderGuideAnchors(anchors) {
+    const svg = document.getElementById('guideOverlay');
+    const S = boardEl.clientWidth;
+    if (!svg || !S) return;
+    if (!anchors) { svg.classList.add('hidden'); svg.innerHTML = ''; return; }
+
+    const cs = S / 9;
+    const rectOf = c => ({ x: c.c * cs, y: c.r * cs, w: cs, h: cs });
+    let out = '';
+
+    (anchors.units || []).forEach(u => {
+      const cells = Teach.unitCells(u);
+      if (!cells.length) return;
+      const xs = cells.map(c => c.c), ys = cells.map(c => c.r);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const x = minX * cs, y = minY * cs;
+      const w = (maxX - minX + 1) * cs, h = (maxY - minY + 1) * cs;
+      out += `<rect class="anchor-unit" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${h - 2}" rx="8"/>`;
+    });
+
+    (anchors.cells || []).forEach(c => {
+      const r = rectOf(c);
+      out += `<rect class="anchor-cell" x="${r.x + 1}" y="${r.y + 1}" width="${r.w - 2}" height="${r.h - 2}" rx="6"/>`;
+    });
+
+    (anchors.links || []).forEach(l => {
+      const a = rectOf(l.from), b = rectOf(l.to);
+      out += `<line class="anchor-link" x1="${a.x + a.w / 2}" y1="${a.y + a.h / 2}" x2="${b.x + b.w / 2}" y2="${b.y + b.h / 2}"${l.kind === 'weak' ? ' stroke-dasharray="4 4"' : ''}/>`;
+    });
+
+    (anchors.candidates || []).forEach(p => {
+      const r = rectOf(p.cell);
+      const sub = cs / 3;
+      p.digits.forEach(d => {
+        const i = d - 1;
+        const cx = r.x + (i % 3) * sub + sub / 2;
+        const cy = r.y + Math.floor(i / 3) * sub + sub / 2;
+        out += `<circle class="anchor-cand" cx="${cx}" cy="${cy}" r="${sub * 0.34}"/>`;
+      });
+    });
+
+    svg.setAttribute('viewBox', `0 0 ${S} ${S}`);
+    svg.innerHTML = out;
+    svg.classList.remove('hidden');
+  }
+
+  function applyGuide() {
+    if (!guide) return;
+    const g = guide;
+    const places = [...g.result.placements, ...g.chain.conclusion.cascadedPlacements];
+
+    for (const p of places) {
+      const i = p.cell.r * 9 + p.cell.c;
+      if (values[i] === p.digit) continue;
+      pushHistory(i);
+      values[i] = p.digit;
+      notes[i].clear();
+      if (trialSnapshot) trialCells.add(i);
+      selected = i;
+    }
+
+    for (const e of g.result.eliminations) {
+      const i = e.cell.r * 9 + e.cell.c;
+      if (!values[i]) e.digits.forEach(d => notes[i].delete(d));
+    }
+
+    mistakeEl.textContent = mistakes;
+    render();
+    closeGuidance();
+    if (isSolvedGrid()) win();
+  }
+
+  document.getElementById('teachBtn').addEventListener('click', toggleTeaching);
+  document.getElementById('guideNext').addEventListener('click', () => {
+    if (!guide) return;
+    guide = Teach.nextHint(guide);
+    renderGuidance();
+  });
+  document.getElementById('guideApply').addEventListener('click', applyGuide);
+  document.getElementById('guideClose').addEventListener('click', closeGuidance);
+
+  window.addEventListener('resize', () => {
+    if (guide) renderGuideAnchors(Teach.currentAnchors(guide));
+  });
+
+
   loadPrefs();
   syncModeUI();
   updateNotesUI();
@@ -1555,6 +2166,5 @@
   renderPad();
   newGame();
 })();
-</script>
-</body>
+</script></body>
 </html>
